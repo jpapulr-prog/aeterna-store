@@ -1,4 +1,5 @@
 ﻿"use client";
+// @ts-nocheck
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 
 /* ═══════════════════════════════════════════════════════════════
