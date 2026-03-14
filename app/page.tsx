@@ -216,24 +216,87 @@ function useStorage(key, defaultValue) {
 }
 
 // ─── Auth Hook ───────────────────────────────────────────────
+// Integrado con Supabase (tabla: admins → columnas: id, created_at, username, password)
+// NOTA: Tu tabla NO tiene columna 'role'. Guardamos el rol en el campo 'password'
+// junto al hash, con formato: "hash|role|name". Si prefieres agregar columnas
+// 'role' y 'name' a tu tabla en Supabase (recomendado), simplifica este código.
+
 function useAuth() {
-  const [users, setUsers, usersLoading] = useStorage("aeterna-users", {});
+  const [users, setUsers] = useState({});
   const [session, setSession] = useState(null);
+  const [loading, setLoading] = useState(true);
 
+  // ── Al montar: cargar usuarios desde Supabase ──
   useEffect(() => {
-    if (!usersLoading && Object.keys(users).length === 0) {
-      const defaultUsers = {
-        [DEFAULT_SUPERADMIN.username]: {
-          ...DEFAULT_SUPERADMIN,
-          passwordHash: simpleHash(DEFAULT_SUPERADMIN.password),
-        },
-      };
-      setUsers(defaultUsers);
-    }
-  }, [usersLoading]);
+    loadUsersFromSupabase();
+  }, []);
 
+  const loadUsersFromSupabase = async () => {
+    try {
+      console.log("🔄 Cargando usuarios desde Supabase...");
+      const { data, error } = await supabase
+        .from('admins')
+        .select('*');
+
+      console.log("📦 Respuesta Supabase:", { data, error });
+
+      if (error) throw error;
+
+      // Convertir el array de Supabase a un objeto indexado por username
+      const usersMap = {};
+      if (data && data.length > 0) {
+        data.forEach((row) => {
+          // Parseamos el campo password que tiene formato: "hashedPassword|role|name"
+          const parts = (row.password || '').split('|');
+          const passwordHash = parts[0] || '';
+          const role = parts[1] || 'admin';
+          const name = parts[2] || row.username;
+
+          usersMap[row.username.toLowerCase()] = {
+            username: row.username.toLowerCase(),
+            passwordHash,
+            role,
+            name,
+            supabaseId: row.id,  // Guardar el ID para poder eliminar
+          };
+        });
+      }
+
+      // Si no existe ningún usuario, crear el SuperAdmin por defecto
+      if (Object.keys(usersMap).length === 0) {
+        const hash = simpleHash(DEFAULT_SUPERADMIN.password);
+        const compositePassword = `${hash}|superadmin|Jean Paul`;
+
+        const { error: insertError } = await supabase
+          .from('admins')
+          .insert([{
+            username: DEFAULT_SUPERADMIN.username,
+            password: compositePassword,
+          }]);
+
+        if (insertError) {
+          console.error("Error creando SuperAdmin inicial:", insertError.message);
+        }
+
+        usersMap[DEFAULT_SUPERADMIN.username] = {
+          username: DEFAULT_SUPERADMIN.username,
+          passwordHash: hash,
+          role: 'superadmin',
+          name: 'Jean Paul',
+        };
+      }
+
+      setUsers(usersMap);
+    } catch (err) {
+      console.error("Error cargando usuarios:", err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ── Login: valida contra los datos cargados de Supabase ──
   const login = (username, password) => {
-    const user = users[username.toLowerCase()];
+    const user = users[username.toLowerCase().trim()];
     if (!user) return { ok: false, msg: "Usuario no encontrado" };
     if (user.passwordHash !== simpleHash(password))
       return { ok: false, msg: "Contraseña incorrecta" };
@@ -243,25 +306,74 @@ function useAuth() {
 
   const logout = () => setSession(null);
 
+  // ── Agregar usuario: INSERT en Supabase + actualizar estado local ──
   const addUser = async (username, password, role, name) => {
-    if (users[username.toLowerCase()])
+    const cleanUsername = username.toLowerCase().trim();
+
+    // Validar que no exista localmente
+    if (users[cleanUsername]) {
       return { ok: false, msg: "El usuario ya existe" };
-    const newUsers = {
-      ...users,
-      [username.toLowerCase()]: {
-        username: username.toLowerCase(),
-        passwordHash: simpleHash(password),
-        role,
-        name,
-      },
-    };
-    await setUsers(newUsers);
-    return { ok: true };
+    }
+
+    try {
+      // Crear el password compuesto: "hash|role|name"
+      const hash = simpleHash(password);
+      const compositePassword = `${hash}|${role}|${name}`;
+
+      // 1. INSERT en Supabase (solo columnas que existen: username, password)
+      console.log("➕ Insertando usuario en Supabase:", { username: cleanUsername, password: compositePassword });
+      const { data, error } = await supabase
+        .from('admins')
+        .insert([{
+          username: cleanUsername,
+          password: compositePassword,
+        }])
+        .select();  // Retorna la fila insertada para obtener el ID
+
+      console.log("📦 Resultado INSERT:", { data, error });
+
+      if (error) throw error;
+
+      // 2. Actualizar estado local para que la UI refleje el cambio al instante
+      setUsers((prev) => ({
+        ...prev,
+        [cleanUsername]: {
+          username: cleanUsername,
+          passwordHash: hash,
+          role,
+          name,
+          supabaseId: data?.[0]?.id || null,
+        },
+      }));
+
+      return { ok: true };
+    } catch (err) {
+      console.error("Error al crear usuario en Supabase:", err.message);
+      return { ok: false, msg: "Error al guardar: " + err.message };
+    }
   };
 
+  // ── Eliminar usuario: DELETE en Supabase + actualizar estado local ──
   const removeUser = async (username) => {
-    const { [username]: _, ...rest } = users;
-    await setUsers(rest);
+    const cleanUsername = username.toLowerCase().trim();
+
+    try {
+      // DELETE en Supabase por username
+      const { error } = await supabase
+        .from('admins')
+        .delete()
+        .eq('username', cleanUsername);
+
+      if (error) throw error;
+
+      // Actualizar estado local
+      setUsers((prev) => {
+        const { [cleanUsername]: _, ...rest } = prev;
+        return rest;
+      });
+    } catch (err) {
+      console.error("Error al eliminar usuario:", err.message);
+    }
   };
 
   return {
@@ -271,7 +383,7 @@ function useAuth() {
     logout,
     addUser,
     removeUser,
-    loading: usersLoading,
+    loading,
   };
 }
 
@@ -708,28 +820,17 @@ export default function AeternaApp() {
   };
 
   // ── Login handler ──
-const handleLogin = async () => {
-  // 1. Le preguntamos a la base de datos si el usuario existe
-  const { data, error } = await supabase
-    .from('administradores')
-    .select('*')
-    .eq('username', loginForm.username)
-    .eq('password', loginForm.password)
-    .single();
-
-  if (data) {
-    // 2. Si lo encuentra, entramos
-    setLoginError("");
-    setLoginForm({ username: "", password: "" });
-    
-    // Guardamos la sesión (ajustado a tu sistema auth)
-    auth.login(data.username, data.role || 'admin'); 
-    nav("admin");
-  } else {
-    // 3. Si no lo encuentra o hay error
-    setLoginError("Usuario o contraseña incorrectos");
-  }
-};
+  // Usa el hook useAuth que ya cargó los usuarios desde Supabase al montar
+  const handleLogin = () => {
+    const result = auth.login(loginForm.username, loginForm.password);
+    if (result.ok) {
+      setLoginError("");
+      setLoginForm({ username: "", password: "" });
+      nav("admin");
+    } else {
+      setLoginError(result.msg);
+    }
+  };
 
   // ── Styles object ──
   const s = {
