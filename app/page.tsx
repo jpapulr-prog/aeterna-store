@@ -1,7 +1,6 @@
 ﻿"use client";
-// @ts-nocheck
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
-
+import { supabase } from './lib/supabase';
 /* ═══════════════════════════════════════════════════════════════
    AETERNA CONCEPT STORE — Premium Bible Web App
    ═══════════════════════════════════════════════════════════════
@@ -153,7 +152,7 @@ const SEED_REVIEWS = [
 ];
 
 // ─── Utility Functions ───────────────────────────────────────
-const formatCOP = (n: number) =>
+const formatCOP = (n) =>
   new Intl.NumberFormat("es-CO", {
     style: "currency",
     currency: "COP",
@@ -195,7 +194,7 @@ function useStorage(key, defaultValue) {
         }
       } catch {
         localStorage.setItem(key, JSON.stringify(defaultValue));
-        }
+      }
       setLoading(false);
     })();
   }, []);
@@ -205,7 +204,7 @@ function useStorage(key, defaultValue) {
       const val = typeof newData === "function" ? newData(data) : newData;
       setData(val);
       try {
-        localStorage.setItem(key, JSON.stringify(val));
+        await window.storage.set(key, JSON.stringify(val));
       } catch (e) {
         console.error("Storage write error:", e);
       }
@@ -709,16 +708,28 @@ export default function AeternaApp() {
   };
 
   // ── Login handler ──
-  const handleLogin = () => {
-    const result = auth.login(loginForm.username, loginForm.password);
-    if (result.ok) {
-      setLoginError("");
-      setLoginForm({ username: "", password: "" });
-      nav("admin");
-    } else {
-      setLoginError(result.msg);
-    }
-  };
+const handleLogin = async () => {
+  // 1. Le preguntamos a la base de datos si el usuario existe
+  const { data, error } = await supabase
+    .from('administradores')
+    .select('*')
+    .eq('username', loginForm.username)
+    .eq('password', loginForm.password)
+    .single();
+
+  if (data) {
+    // 2. Si lo encuentra, entramos
+    setLoginError("");
+    setLoginForm({ username: "", password: "" });
+    
+    // Guardamos la sesión (ajustado a tu sistema auth)
+    auth.login(data.username, data.role || 'admin'); 
+    nav("admin");
+  } else {
+    // 3. Si no lo encuentra o hay error
+    setLoginError("Usuario o contraseña incorrectos");
+  }
+};
 
   // ── Styles object ──
   const s = {
