@@ -1,6 +1,6 @@
 ﻿"use client";
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
-import { supabase } from './lib/supabase';
+import { supabase } from '../supabase';
 /* ═══════════════════════════════════════════════════════════════
    AETERNA CONCEPT STORE — Premium Bible Web App
    ═══════════════════════════════════════════════════════════════
