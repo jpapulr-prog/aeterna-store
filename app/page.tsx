@@ -215,22 +215,20 @@ function useStorage(key, defaultValue) {
 }
 
 // ─── Auth Hook ───────────────────────────────────────────────
-// Integrado con Supabase (tabla: admins → columnas: id, created_at, username, password)
-// NOTA: Tu tabla NO tiene columna 'role'. Guardamos el rol en el campo 'password'
-// junto al hash, con formato: "hash|role|name". Si prefieres agregar columnas
-// 'role' y 'name' a tu tabla en Supabase (recomendado), simplifica este código.
+// Tabla Supabase: admins → columnas: username, password, role
+// Todo se lee y escribe directamente en Supabase. Nada local.
 
 function useAuth() {
   const [users, setUsers] = useState({});
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // ── Al montar: cargar usuarios desde Supabase ──
+  // ── CARGA INICIAL: traer todos los usuarios de Supabase ──
   useEffect(() => {
-    loadUsersFromSupabase();
+    loadUsers();
   }, []);
 
-  const loadUsersFromSupabase = async () => {
+  const loadUsers = async () => {
     try {
       const { data, error } = await supabase
         .from('admins')
@@ -238,125 +236,126 @@ function useAuth() {
 
       if (error) throw error;
 
-      // Convertir el array de Supabase a un objeto indexado por username
       const usersMap = {};
       if (data && data.length > 0) {
         data.forEach((row) => {
-          // Parseamos el campo password que tiene formato: "hashedPassword|role|name"
-          const parts = (row.password || '').split('|');
-          const passwordHash = parts[0] || '';
-          const role = parts[1] || 'admin';
-          const name = parts[2] || row.username;
-
           usersMap[row.username.toLowerCase()] = {
             username: row.username.toLowerCase(),
-            passwordHash,
-            role,
-            name,
-            supabaseId: row.id,  // Guardar el ID para poder eliminar
+            password: row.password,
+            role: row.role || 'admin',
+            supabaseId: row.id,
           };
         });
       }
 
-      // Si no existe ningún usuario, crear el SuperAdmin por defecto
+      // Si la tabla está vacía, crear el SuperAdmin por defecto
       if (Object.keys(usersMap).length === 0) {
-        const hash = simpleHash(DEFAULT_SUPERADMIN.password);
-        const compositePassword = `${hash}|superadmin|Jean Paul`;
-
-        const { error: insertError } = await supabase
+        const hashedPw = simpleHash(DEFAULT_SUPERADMIN.password);
+        const { error: insertErr } = await supabase
           .from('admins')
           .insert([{
             username: DEFAULT_SUPERADMIN.username,
-            password: compositePassword,
+            password: hashedPw,
+            role: 'superadmin',
           }]);
 
-        if (insertError) {
-          console.error("Error creando SuperAdmin inicial:", insertError.message);
+        if (!insertErr) {
+          usersMap[DEFAULT_SUPERADMIN.username] = {
+            username: DEFAULT_SUPERADMIN.username,
+            password: hashedPw,
+            role: 'superadmin',
+          };
         }
-
-        usersMap[DEFAULT_SUPERADMIN.username] = {
-          username: DEFAULT_SUPERADMIN.username,
-          passwordHash: hash,
-          role: 'superadmin',
-          name: 'Jean Paul',
-        };
       }
 
       setUsers(usersMap);
     } catch (err) {
-      console.error("Error cargando usuarios:", err.message);
+      console.error("Error cargando usuarios:", err);
     } finally {
       setLoading(false);
     }
   };
 
-  // ── Login: valida contra los datos cargados de Supabase ──
-  const login = (username, password) => {
-    const user = users[username.toLowerCase().trim()];
-    if (!user) return { ok: false, msg: "Usuario no encontrado" };
-    if (user.passwordHash !== simpleHash(password))
-      return { ok: false, msg: "Contraseña incorrecta" };
-    setSession(user);
-    return { ok: true };
-  };
+  // ── LOGIN: SELECT directo a Supabase por username ──
+  const login = async (username, password) => {
+    const cleanUsername = username.toLowerCase().trim();
+    try {
+      const { data, error } = await supabase
+        .from('admins')
+        .select('*')
+        .eq('username', cleanUsername)
+        .single();
 
-  // ── Login directo (para cuando handleLogin ya validó contra Supabase) ──
-  const setSessionDirect = (userData) => {
-    setSession(userData);
+      if (error || !data) {
+        return { ok: false, msg: "Usuario no encontrado" };
+      }
+
+      // Comparar hash de la contraseña
+      if (data.password !== simpleHash(password)) {
+        return { ok: false, msg: "Contraseña incorrecta" };
+      }
+
+      // Sesión exitosa
+      setSession({
+        username: data.username,
+        role: data.role || 'admin',
+        name: data.username,
+        supabaseId: data.id,
+      });
+      return { ok: true };
+    } catch (err) {
+      console.error("Error en login:", err);
+      return { ok: false, msg: "Error de conexión" };
+    }
   };
 
   const logout = () => setSession(null);
 
-  // ── Agregar usuario: INSERT en Supabase + actualizar estado local ──
+  // ── AGREGAR USUARIO: INSERT en Supabase con columnas username, password, role ──
   const addUser = async (username, password, role, name) => {
     const cleanUsername = username.toLowerCase().trim();
 
-    // Validar que no exista localmente
     if (users[cleanUsername]) {
       return { ok: false, msg: "El usuario ya existe" };
     }
 
     try {
-      // Crear el password compuesto: "hash|role|name"
-      const hash = simpleHash(password);
-      const compositePassword = `${hash}|${role}|${name}`;
+      const hashedPw = simpleHash(password);
 
-      // 1. INSERT en Supabase (solo columnas que existen: username, password)
       const { data, error } = await supabase
         .from('admins')
         .insert([{
           username: cleanUsername,
-          password: compositePassword,
+          password: hashedPw,
+          role: role,
         }])
-        .select();  // Retorna la fila insertada para obtener el ID
+        .select();
 
       if (error) throw error;
 
-      // 2. Actualizar estado local para que la UI refleje el cambio al instante
+      // Actualizar lista local para que la UI se actualice al instante
       setUsers((prev) => ({
         ...prev,
         [cleanUsername]: {
           username: cleanUsername,
-          passwordHash: hash,
-          role,
-          name,
+          password: hashedPw,
+          role: role,
+          name: name,
           supabaseId: data?.[0]?.id || null,
         },
       }));
 
       return { ok: true };
     } catch (err) {
-      console.error("Error al crear usuario en Supabase:", err.message);
+      console.error("Error al crear usuario:", err);
       return { ok: false, msg: "Error al guardar: " + err.message };
     }
   };
 
-  // ── Eliminar usuario: DELETE en Supabase + actualizar estado local ──
+  // ── ELIMINAR USUARIO: DELETE en Supabase ──
   const removeUser = async (username) => {
     const cleanUsername = username.toLowerCase().trim();
-
     try {
-      // DELETE en Supabase por username
       const { error } = await supabase
         .from('admins')
         .delete()
@@ -364,13 +363,12 @@ function useAuth() {
 
       if (error) throw error;
 
-      // Actualizar estado local
       setUsers((prev) => {
         const { [cleanUsername]: _, ...rest } = prev;
         return rest;
       });
     } catch (err) {
-      console.error("Error al eliminar usuario:", err.message);
+      console.error("Error al eliminar:", err);
     }
   };
 
@@ -378,7 +376,6 @@ function useAuth() {
     session,
     users,
     login,
-    setSessionDirect,
     logout,
     addUser,
     removeUser,
@@ -819,49 +816,20 @@ export default function AeternaApp() {
   };
 
   // ── Login handler ──
-  // Consulta directamente Supabase para validar credenciales
+  // Valida credenciales directamente contra la tabla 'admins' en Supabase
   const handleLogin = async () => {
-    const cleanUsername = loginForm.username.toLowerCase().trim();
-    const password = loginForm.password;
-
-    if (!cleanUsername || !password) {
+    if (!loginForm.username || !loginForm.password) {
       setLoginError("Ingresa usuario y contraseña");
       return;
     }
 
-    try {
-      // 1. Buscar el usuario en Supabase
-      const { data, error } = await supabase
-        .from('admins')
-        .select('*')
-        .eq('username', cleanUsername)
-        .single();
-
-      if (error || !data) {
-        setLoginError("Usuario no encontrado");
-        return;
-      }
-
-      // 2. Parsear el campo password (formato: "hash|role|name")
-      const parts = (data.password || '').split('|');
-      const storedHash = parts[0] || '';
-      const role = parts[1] || 'admin';
-      const name = parts[2] || data.username;
-
-      // 3. Comparar el hash de la contraseña ingresada con el almacenado
-      if (simpleHash(password) !== storedHash) {
-        setLoginError("Contraseña incorrecta");
-        return;
-      }
-
-      // 4. Login exitoso - crear sesión
+    const result = await auth.login(loginForm.username, loginForm.password);
+    if (result.ok) {
       setLoginError("");
       setLoginForm({ username: "", password: "" });
-      auth.setSessionDirect({ username: cleanUsername, role, name, supabaseId: data.id });
       nav("admin");
-    } catch (err) {
-      console.error("Error en login:", err);
-      setLoginError("Error de conexión. Intenta de nuevo.");
+    } else {
+      setLoginError(result.msg);
     }
   };
 
