@@ -235,11 +235,8 @@ function useAuth() {
         .select('*');
 
       if (error) {
-        alert("ERROR CARGANDO USUARIOS: " + JSON.stringify(error));
         throw error;
       }
-
-      alert("USUARIOS CARGADOS DE SUPABASE: " + (data ? data.length : 0) + " encontrados. " + JSON.stringify(data?.map(u => u.username)));
 
       const usersMap = {};
       if (data && data.length > 0) {
@@ -321,7 +318,6 @@ function useAuth() {
     const cleanUsername = username.toLowerCase().trim();
 
     if (!cleanUsername || !password) {
-      alert("ERROR: Username o password vacío");
       return { ok: false, msg: "Campos vacíos" };
     }
 
@@ -329,39 +325,36 @@ function useAuth() {
       return { ok: false, msg: "El usuario ya existe" };
     }
 
-    const hashedPw = simpleHash(password);
+    try {
+      const hashedPw = simpleHash(password);
 
-    // DEBUG: mostrar qué vamos a insertar
-    alert("INSERTANDO: username=" + cleanUsername + ", password=" + hashedPw + ", role=" + role);
+      const { data, error } = await supabase
+        .from('admins')
+        .insert([{
+          username: cleanUsername,
+          password: hashedPw,
+          role: role,
+        }])
+        .select();
 
-    const { data, error } = await supabase
-      .from('admins')
-      .insert([{
-        username: cleanUsername,
-        password: hashedPw,
-        role: role,
-      }])
-      .select();
+      if (error) throw error;
 
-    if (error) {
-      alert("ERROR SUPABASE: " + JSON.stringify(error));
-      return { ok: false, msg: "Error: " + error.message };
+      // Actualizar lista local para que la UI se actualice al instante
+      setUsers((prev) => ({
+        ...prev,
+        [cleanUsername]: {
+          username: cleanUsername,
+          password: hashedPw,
+          role: role,
+          supabaseId: data?.[0]?.id || null,
+        },
+      }));
+
+      return { ok: true };
+    } catch (err) {
+      console.error("Error al crear usuario:", err);
+      return { ok: false, msg: "Error al guardar: " + err.message };
     }
-
-    alert("ÉXITO: Usuario guardado en Supabase. ID=" + (data?.[0]?.id || 'sin id'));
-
-    // Actualizar lista local para que la UI se actualice al instante
-    setUsers((prev) => ({
-      ...prev,
-      [cleanUsername]: {
-        username: cleanUsername,
-        password: hashedPw,
-        role: role,
-        supabaseId: data?.[0]?.id || null,
-      },
-    }));
-
-    return { ok: true };
   };
 
   // ── ELIMINAR USUARIO: DELETE en Supabase ──
