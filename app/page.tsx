@@ -758,25 +758,9 @@ export default function AeternaApp() {
 
       if (error) throw error;
 
-      if (data && data.length > 0) {
-        setProducts(data);
-      } else {
-        // Tabla vacía: insertar los productos semilla
-        const { data: inserted, error: insertErr } = await supabase
-          .from('products')
-          .insert(SEED_PRODUCTS)
-          .select();
-
-        if (insertErr) {
-          console.error("Error insertando productos semilla:", insertErr);
-          setProducts(SEED_PRODUCTS); // Fallback local
-        } else {
-          setProducts(inserted || SEED_PRODUCTS);
-        }
-      }
+      setProducts(data || []);
     } catch (err) {
       console.error("Error cargando productos:", err);
-      setProducts(SEED_PRODUCTS); // Fallback local
     } finally {
       setProdLoading(false);
     }
