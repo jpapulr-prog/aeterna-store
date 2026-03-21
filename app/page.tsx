@@ -13,7 +13,7 @@ import { supabase } from '../supabase';
    ═══════════════════════════════════════════════════════════════ */
 
 // ─── Constants ───────────────────────────────────────────────
-const WHATSAPP_NUMBER = "573166235909"; // Replace with real number
+const WHATSAPP_NUMBER = "573223778543"; // Replace with real number
 const BRAND = "AETERNA";
 const TAGLINE = "Lo que es para siempre, merece ser hermoso";
 const CITY = "Medellín";
