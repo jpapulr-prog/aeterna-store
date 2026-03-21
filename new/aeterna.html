@@ -1,19 +1,18 @@
-﻿"use client";
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
-import { supabase } from '../supabase';
+
 /* ═══════════════════════════════════════════════════════════════
    AETERNA CONCEPT STORE — Premium Bible Web App
    ═══════════════════════════════════════════════════════════════
    Architecture:
    - Single React SPA with internal routing (state-based)
-   - Persistent storage via Supabase + localStorage
+   - Persistent storage via window.storage API
    - Role-based auth: SuperAdmin + Admin
    - WhatsApp lead qualification with product context
    - Premium luxury UI: warm cream, gold accents, serif typography
    ═══════════════════════════════════════════════════════════════ */
 
 // ─── Constants ───────────────────────────────────────────────
-const WHATSAPP_NUMBER = "573166235909"; // Replace with real number
+const WHATSAPP_NUMBER = "573001234567"; // Replace with real number
 const BRAND = "AETERNA";
 const TAGLINE = "Lo que es para siempre, merece ser hermoso";
 const CITY = "Medellín";
@@ -179,23 +178,24 @@ const simpleHash = (str) => {
 };
 
 // ─── Storage Hook ────────────────────────────────────────────
-// Usa localStorage como almacenamiento (funciona en todos los navegadores)
 function useStorage(key, defaultValue) {
   const [data, setData] = useState(defaultValue);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem(key);
-      if (stored) {
-        setData(JSON.parse(stored));
-      } else {
-        localStorage.setItem(key, JSON.stringify(defaultValue));
+    (async () => {
+      try {
+        const result = await window.storage.get(key);
+        if (result && result.value) {
+          setData(JSON.parse(result.value));
+        } else {
+          await window.storage.set(key, JSON.stringify(defaultValue));
+        }
+      } catch {
+        await window.storage.set(key, JSON.stringify(defaultValue));
       }
-    } catch {
-      // Si localStorage falla, usar el valor por defecto
-    }
-    setLoading(false);
+      setLoading(false);
+    })();
   }, []);
 
   const update = useCallback(
@@ -203,7 +203,7 @@ function useStorage(key, defaultValue) {
       const val = typeof newData === "function" ? newData(data) : newData;
       setData(val);
       try {
-        localStorage.setItem(key, JSON.stringify(val));
+        await window.storage.set(key, JSON.stringify(val));
       } catch (e) {
         console.error("Storage write error:", e);
       }
@@ -215,166 +215,52 @@ function useStorage(key, defaultValue) {
 }
 
 // ─── Auth Hook ───────────────────────────────────────────────
-// Tabla Supabase: admins → columnas: username, password, role
-// Todo se lee y escribe directamente en Supabase. Nada local.
-
 function useAuth() {
-  const [users, setUsers] = useState({});
+  const [users, setUsers, usersLoading] = useStorage("aeterna-users", {});
   const [session, setSession] = useState(null);
-  const [loading, setLoading] = useState(true);
 
-  // ── CARGA INICIAL: traer todos los usuarios de Supabase ──
   useEffect(() => {
-    loadUsers();
-  }, []);
-
-  const loadUsers = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('admins')
-        .select('*');
-
-      if (error) {
-        throw error;
-      }
-
-      const usersMap = {};
-      if (data && data.length > 0) {
-        data.forEach((row) => {
-          usersMap[row.username.toLowerCase()] = {
-            username: row.username.toLowerCase(),
-            password: row.password,
-            role: row.role || 'admin',
-            supabaseId: row.id,
-          };
-        });
-      }
-
-      // Si la tabla está vacía, crear el SuperAdmin por defecto
-      if (Object.keys(usersMap).length === 0) {
-        const hashedPw = simpleHash(DEFAULT_SUPERADMIN.password);
-        const { error: insertErr } = await supabase
-          .from('admins')
-          .insert([{
-            username: DEFAULT_SUPERADMIN.username,
-            password: hashedPw,
-            role: 'superadmin',
-          }]);
-
-        if (!insertErr) {
-          usersMap[DEFAULT_SUPERADMIN.username] = {
-            username: DEFAULT_SUPERADMIN.username,
-            password: hashedPw,
-            role: 'superadmin',
-          };
-        }
-      }
-
-      setUsers(usersMap);
-    } catch (err) {
-      console.error("Error cargando usuarios:", err);
-    } finally {
-      setLoading(false);
+    if (!usersLoading && Object.keys(users).length === 0) {
+      const defaultUsers = {
+        [DEFAULT_SUPERADMIN.username]: {
+          ...DEFAULT_SUPERADMIN,
+          passwordHash: simpleHash(DEFAULT_SUPERADMIN.password),
+        },
+      };
+      setUsers(defaultUsers);
     }
-  };
+  }, [usersLoading]);
 
-  // ── LOGIN: SELECT directo a Supabase por username ──
-  const login = async (username, password) => {
-    const cleanUsername = username.toLowerCase().trim();
-    try {
-      const { data, error } = await supabase
-        .from('admins')
-        .select('*')
-        .eq('username', cleanUsername)
-        .single();
-
-      if (error || !data) {
-        return { ok: false, msg: "Usuario no encontrado" };
-      }
-
-      // Comparar hash de la contraseña
-      if (data.password !== simpleHash(password)) {
-        return { ok: false, msg: "Contraseña incorrecta" };
-      }
-
-      // Sesión exitosa
-      setSession({
-        username: data.username,
-        role: data.role || 'admin',
-        name: data.username,
-        supabaseId: data.id,
-      });
-      return { ok: true };
-    } catch (err) {
-      console.error("Error en login:", err);
-      return { ok: false, msg: "Error de conexión" };
-    }
+  const login = (username, password) => {
+    const user = users[username.toLowerCase()];
+    if (!user) return { ok: false, msg: "Usuario no encontrado" };
+    if (user.passwordHash !== simpleHash(password))
+      return { ok: false, msg: "Contraseña incorrecta" };
+    setSession(user);
+    return { ok: true };
   };
 
   const logout = () => setSession(null);
 
-  // ── AGREGAR USUARIO: INSERT en Supabase con columnas username, password, role ──
   const addUser = async (username, password, role, name) => {
-    const cleanUsername = username.toLowerCase().trim();
-
-    if (!cleanUsername || !password) {
-      return { ok: false, msg: "Campos vacíos" };
-    }
-
-    if (users[cleanUsername]) {
+    if (users[username.toLowerCase()])
       return { ok: false, msg: "El usuario ya existe" };
-    }
-
-    try {
-      const hashedPw = simpleHash(password);
-
-      const { data, error } = await supabase
-        .from('admins')
-        .insert([{
-          username: cleanUsername,
-          password: hashedPw,
-          role: role,
-        }])
-        .select();
-
-      if (error) throw error;
-
-      // Actualizar lista local para que la UI se actualice al instante
-      setUsers((prev) => ({
-        ...prev,
-        [cleanUsername]: {
-          username: cleanUsername,
-          password: hashedPw,
-          role: role,
-          supabaseId: data?.[0]?.id || null,
-        },
-      }));
-
-      return { ok: true };
-    } catch (err) {
-      console.error("Error al crear usuario:", err);
-      return { ok: false, msg: "Error al guardar: " + err.message };
-    }
+    const newUsers = {
+      ...users,
+      [username.toLowerCase()]: {
+        username: username.toLowerCase(),
+        passwordHash: simpleHash(password),
+        role,
+        name,
+      },
+    };
+    await setUsers(newUsers);
+    return { ok: true };
   };
 
-  // ── ELIMINAR USUARIO: DELETE en Supabase ──
   const removeUser = async (username) => {
-    const cleanUsername = username.toLowerCase().trim();
-    try {
-      const { error } = await supabase
-        .from('admins')
-        .delete()
-        .eq('username', cleanUsername);
-
-      if (error) throw error;
-
-      setUsers((prev) => {
-        const { [cleanUsername]: _, ...rest } = prev;
-        return rest;
-      });
-    } catch (err) {
-      console.error("Error al eliminar:", err);
-    }
+    const { [username]: _, ...rest } = users;
+    await setUsers(rest);
   };
 
   return {
@@ -384,7 +270,7 @@ function useAuth() {
     logout,
     addUser,
     removeUser,
-    loading,
+    loading: usersLoading,
   };
 }
 
@@ -739,48 +625,10 @@ export default function AeternaApp() {
   // ── State ──
   const [page, setPage] = useState("home"); // home | catalog | product | login | admin
   const [selectedProduct, setSelectedProduct] = useState(null);
-  const [products, setProducts] = useState([]);
-  const [prodLoading, setProdLoading] = useState(true);
+  const [products, setProducts, prodLoading] = useStorage("aeterna-products", SEED_PRODUCTS);
   const [reviews, setReviews, revLoading] = useStorage("aeterna-reviews", SEED_REVIEWS);
   const [menuOpen, setMenuOpen] = useState(false);
   const auth = useAuth();
-
-  // ── Cargar productos desde Supabase al montar ──
-  useEffect(() => {
-    loadProducts();
-  }, []);
-
-  const loadProducts = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('products')
-        .select('*');
-
-      if (error) throw error;
-
-      if (data && data.length > 0) {
-        setProducts(data);
-      } else {
-        // Tabla vacía: insertar los productos semilla
-        const { data: inserted, error: insertErr } = await supabase
-          .from('products')
-          .insert(SEED_PRODUCTS)
-          .select();
-
-        if (insertErr) {
-          console.error("Error insertando productos semilla:", insertErr);
-          setProducts(SEED_PRODUCTS); // Fallback local
-        } else {
-          setProducts(inserted || SEED_PRODUCTS);
-        }
-      }
-    } catch (err) {
-      console.error("Error cargando productos:", err);
-      setProducts(SEED_PRODUCTS); // Fallback local
-    } finally {
-      setProdLoading(false);
-    }
-  };
 
   // Admin form states
   const [loginForm, setLoginForm] = useState({ username: "", password: "" });
@@ -812,83 +660,24 @@ export default function AeternaApp() {
     setMenuOpen(false);
   };
 
-  // ── Product CRUD (Supabase) ──
+  // ── Product CRUD ──
   const saveProduct = async (product) => {
-    try {
-      // Verificar si el producto ya existe
-      const exists = products.find((p) => p.id === product.id);
-
-      if (exists) {
-        // UPDATE en Supabase
-        const { error } = await supabase
-          .from('products')
-          .update({
-            number: product.number,
-            name: product.name,
-            price: product.price,
-            description: product.description,
-            image: product.image,
-            stock: product.stock,
-            rating: product.rating,
-            reviewCount: product.reviewCount,
-            category: product.category,
-          })
-          .eq('id', product.id);
-
-        if (error) throw error;
-
-        setProducts((prev) => prev.map((p) => (p.id === product.id ? product : p)));
-      } else {
-        // INSERT en Supabase
-        const { data, error } = await supabase
-          .from('products')
-          .insert([product])
-          .select();
-
-        if (error) throw error;
-
-        setProducts((prev) => [...prev, data?.[0] || product]);
-      }
-    } catch (err) {
-      console.error("Error guardando producto:", err);
+    const updated = products.map((p) => (p.id === product.id ? product : p));
+    if (!products.find((p) => p.id === product.id)) {
+      updated.push(product);
     }
+    await setProducts(updated);
     setEditingProduct(null);
   };
 
   const deleteProduct = async (id) => {
-    try {
-      const { error } = await supabase
-        .from('products')
-        .delete()
-        .eq('id', id);
-
-      if (error) throw error;
-
-      setProducts((prev) => prev.filter((p) => p.id !== id));
-    } catch (err) {
-      console.error("Error eliminando producto:", err);
-    }
+    await setProducts(products.filter((p) => p.id !== id));
   };
 
   const toggleStock = async (id) => {
-    const product = products.find((p) => p.id === id);
-    if (!product) return;
-
-    const newStock = !product.stock;
-    try {
-      const { error } = await supabase
-        .from('products')
-        .update({ stock: newStock })
-        .eq('id', id);
-
-      if (error) throw error;
-
-      setProducts((prev) =>
-        prev.map((p) => (p.id === id ? { ...p, stock: newStock } : p))
-      );
-    } catch (err) {
-      console.error("Error cambiando stock:", err);
-    }
+    await setProducts(
+      products.map((p) => (p.id === id ? { ...p, stock: !p.stock } : p))
+    );
   };
 
   // ── Review submit ──
@@ -906,23 +695,10 @@ export default function AeternaApp() {
     // Update product review count and rating
     const prodReviews = [...reviews.filter((r) => r.productId === selectedProduct.id), newReview];
     const avgRating = prodReviews.reduce((a, b) => a + b.stars, 0) / prodReviews.length;
-    const newRating = Math.round(avgRating * 10) / 10;
-    const newCount = prodReviews.length;
-
-    // Actualizar rating en Supabase
-    try {
-      await supabase
-        .from('products')
-        .update({ rating: newRating, reviewCount: newCount })
-        .eq('id', selectedProduct.id);
-    } catch (err) {
-      console.error("Error actualizando rating:", err);
-    }
-
-    setProducts((prev) =>
-      prev.map((p) =>
+    await setProducts(
+      products.map((p) =>
         p.id === selectedProduct.id
-          ? { ...p, rating: newRating, reviewCount: newCount }
+          ? { ...p, rating: Math.round(avgRating * 10) / 10, reviewCount: prodReviews.length }
           : p
       )
     );
@@ -931,14 +707,8 @@ export default function AeternaApp() {
   };
 
   // ── Login handler ──
-  // Valida credenciales directamente contra la tabla 'admins' en Supabase
-  const handleLogin = async () => {
-    if (!loginForm.username || !loginForm.password) {
-      setLoginError("Ingresa usuario y contraseña");
-      return;
-    }
-
-    const result = await auth.login(loginForm.username, loginForm.password);
+  const handleLogin = () => {
+    const result = auth.login(loginForm.username, loginForm.password);
     if (result.ok) {
       setLoginError("");
       setLoginForm({ username: "", password: "" });
