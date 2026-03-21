@@ -1621,7 +1621,7 @@ export default function AeternaApp() {
                     }}
                   >
                     <div style={{ fontSize: 12, color: "#8B7355", lineHeight: 1.7 }}>
-                      Envío asegurado a nivel nacional • Calidad Garantizada AETERNA • Empaque premium de regalo incluido
+                      Envío asegurado a nivel nacional • Calidad Garantizada AETERNA
                     </div>
                   </div>
                 </div>
