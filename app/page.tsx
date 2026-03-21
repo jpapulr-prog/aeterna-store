@@ -1120,6 +1120,9 @@ export default function AeternaApp() {
           .card-stars { gap: 2px !important; }
           .card-badge { font-size: 9px !important; padding: 2px 6px !important; top: 6px !important; right: 6px !important; }
           .card-image { padding-bottom: 130% !important; }
+          .whatsapp-btn-wrapper { position: fixed !important; bottom: 0 !important; left: 0 !important; right: 0 !important; z-index: 999 !important; padding: 12px 16px !important; background: rgba(250,246,238,0.97) !important; box-shadow: 0 -4px 20px rgba(0,0,0,0.1) !important; backdrop-filter: blur(10px) !important; }
+          .whatsapp-btn-wrapper a { width: 100% !important; justify-content: center !important; padding: 14px 20px !important; font-size: 13px !important; }
+          .product-detail-content { padding-bottom: 80px !important; }
         }
       `}</style>
       {/* Paper texture overlay */}
@@ -1460,7 +1463,7 @@ export default function AeternaApp() {
           const p = products.find((x) => x.id === selectedProduct.id) || selectedProduct;
           const prodReviews = reviews.filter((r) => r.productId === p.id);
           return (
-            <div style={{ ...s.container, padding: "40px 24px 80px" }}>
+            <div className="product-detail-content" style={{ ...s.container, padding: "40px 24px 80px" }}>
               {/* Breadcrumb */}
               <div style={{ marginBottom: 32, fontSize: 13, color: "#8B7355" }}>
                 <span onClick={() => nav("catalog")} style={{ cursor: "pointer", textDecoration: "underline" }}>
@@ -1578,25 +1581,33 @@ export default function AeternaApp() {
 
                   {/* CTA: WhatsApp or Waitlist */}
                   {p.stock ? (
-                    <a
-                      href={buildWhatsAppUrl(p.number, p.name)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: 10,
-                        ...s.btn,
-                        background: "#25D366",
-                        color: "#fff",
-                        textDecoration: "none",
-                        fontSize: 15,
-                        padding: "16px 36px",
-                      }}
-                    >
-                      <WhatsAppIcon />
-                      Consultar Disponibilidad
-                    </a>
+                    <div className="whatsapp-btn-wrapper">
+                      <a
+                        href={buildWhatsAppUrl(p.number, p.name)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 10,
+                          ...s.btn,
+                          background: "#25D366",
+                          color: "#fff",
+                          textDecoration: "none",
+                          fontSize: 14,
+                          padding: "16px 36px",
+                          textAlign: "center",
+                          lineHeight: 1.4,
+                        }}
+                      >
+                        <WhatsAppIcon />
+                        <span>
+                          <span style={{ fontWeight: 700 }}>PEDIR POR WHATSAPP</span>
+                          <br />
+                          <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.9 }}>Paga al recibir o en línea</span>
+                        </span>
+                      </a>
+                    </div>
                   ) : (
                     <WaitlistForm product={p} />
                   )}
