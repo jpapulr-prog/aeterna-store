@@ -796,6 +796,39 @@ export default function AeternaApp() {
     setMenuOpen(false);
   };
 
+  // ── Image Upload State ──
+  const [uploading, setUploading] = useState(false);
+
+  // ── Subir imagen a Supabase Storage ──
+  const uploadImage = async (file) => {
+    if (!file) return null;
+
+    setUploading(true);
+    try {
+      // Crear nombre único para el archivo
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${fileExt}`;
+
+      const { data, error } = await supabase.storage
+        .from('product-images')
+        .upload(fileName, file);
+
+      if (error) throw error;
+
+      // Obtener la URL pública
+      const { data: urlData } = supabase.storage
+        .from('product-images')
+        .getPublicUrl(fileName);
+
+      return urlData.publicUrl;
+    } catch (err) {
+      console.error("Error subiendo imagen:", err);
+      return null;
+    } finally {
+      setUploading(false);
+    }
+  };
+
   // ── Product CRUD (Supabase) ──
   const saveProduct = async (product) => {
     try {
@@ -1930,18 +1963,88 @@ export default function AeternaApp() {
                           />
                         </div>
                         <div>
-                          <label style={s.label}>URL de imagen (opcional)</label>
-                          <input
-                            style={s.input}
-                            value={editingProduct.image || ""}
-                            onChange={(e) =>
-                              setEditingProduct({
-                                ...editingProduct,
-                                image: e.target.value || null,
-                              })
-                            }
-                            placeholder="https://..."
-                          />
+                          <label style={s.label}>Imagen del producto</label>
+                          {/* Preview de imagen actual */}
+                          {editingProduct.image && (
+                            <div style={{ marginBottom: 12, position: "relative" }}>
+                              <img
+                                src={editingProduct.image}
+                                alt="Preview"
+                                style={{
+                                  width: "100%",
+                                  maxHeight: 200,
+                                  objectFit: "cover",
+                                  border: "1px solid #E8E0D0",
+                                }}
+                              />
+                              <button
+                                onClick={() => setEditingProduct({ ...editingProduct, image: null })}
+                                style={{
+                                  position: "absolute",
+                                  top: 8,
+                                  right: 8,
+                                  background: "rgba(198,40,40,0.9)",
+                                  color: "#fff",
+                                  border: "none",
+                                  padding: "4px 10px",
+                                  fontSize: 12,
+                                  cursor: "pointer",
+                                }}
+                              >
+                                Quitar
+                              </button>
+                            </div>
+                          )}
+                          {/* Botón para subir imagen */}
+                          <div
+                            style={{
+                              border: "2px dashed #D4C5A9",
+                              padding: 20,
+                              textAlign: "center",
+                              cursor: uploading ? "wait" : "pointer",
+                              background: "#FAF6EE",
+                              transition: "all 0.3s",
+                            }}
+                            onClick={() => {
+                              if (!uploading) {
+                                document.getElementById('image-upload-input')?.click();
+                              }
+                            }}
+                          >
+                            <input
+                              id="image-upload-input"
+                              type="file"
+                              accept="image/*"
+                              style={{ display: "none" }}
+                              onChange={async (e) => {
+                                const file = e.target.files?.[0];
+                                if (file) {
+                                  const url = await uploadImage(file);
+                                  if (url) {
+                                    setEditingProduct({ ...editingProduct, image: url });
+                                  } else {
+                                    alert("Error al subir la imagen. Intenta de nuevo.");
+                                  }
+                                }
+                                e.target.value = '';
+                              }}
+                            />
+                            {uploading ? (
+                              <div style={{ color: "#B8963E", fontSize: 14, ...s.serif }}>
+                                Subiendo imagen...
+                              </div>
+                            ) : (
+                              <div>
+                                <div style={{ fontSize: 24, marginBottom: 8 }}>📷</div>
+                                <div style={{ color: "#8B7355", fontSize: 13 }}>
+                                  Toca aquí para subir una foto
+                                </div>
+                                <div style={{ color: "#A09080", fontSize: 11, marginTop: 4 }}>
+                                  JPG, PNG o WebP
+                                </div>
+                              </div>
+                            )}
+                          </div>
                         </div>
                         <div style={{ display: "flex", gap: 12, marginTop: 8 }}>
                           <button
