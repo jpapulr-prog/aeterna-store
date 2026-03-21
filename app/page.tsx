@@ -165,7 +165,7 @@ const generateId = () =>
 
 const buildWhatsAppUrl = (productNumber, productName) => {
   const msg = encodeURIComponent(
-    `Hola AETERNA, me interesa la pieza #${productNumber} (${productName}). ¿Está disponible para entrega inmediata en ${CITY}?`
+    `Hola AETERNA, me interesa la pieza ${productName}. ¿Podrían brindarme asesoría sobre la disponibilidad y los métodos de envío?`
   );
   return `https://wa.me/${WHATSAPP_NUMBER}?text=${msg}`;
 };
