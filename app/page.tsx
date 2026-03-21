@@ -1290,7 +1290,7 @@ export default function AeternaApp() {
                     ...s.btnGold,
                   }}
                 >
-                  Explorar Biblias
+                  Ver Biblias
                 </button>
               </div>
             </div>
