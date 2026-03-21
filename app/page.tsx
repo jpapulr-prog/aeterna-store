@@ -1,12 +1,12 @@
 ﻿"use client";
-import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from '../supabase';
 /* ═══════════════════════════════════════════════════════════════
    AETERNA CONCEPT STORE — Premium Bible Web App
    ═══════════════════════════════════════════════════════════════
    Architecture:
    - Single React SPA with internal routing (state-based)
-   - Persistent storage via Supabase + localStorage
+   - Persistent storage via Supabase (admins, products, reviews, images)
    - Role-based auth: SuperAdmin + Admin
    - WhatsApp lead qualification with product context
    - Premium luxury UI: warm cream, gold accents, serif typography
@@ -178,41 +178,7 @@ const simpleHash = (str) => {
   return "h" + Math.abs(h).toString(36);
 };
 
-// ─── Storage Hook ────────────────────────────────────────────
-// Usa localStorage como almacenamiento (funciona en todos los navegadores)
-function useStorage(key, defaultValue) {
-  const [data, setData] = useState(defaultValue);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem(key);
-      if (stored) {
-        setData(JSON.parse(stored));
-      } else {
-        localStorage.setItem(key, JSON.stringify(defaultValue));
-      }
-    } catch {
-      // Si localStorage falla, usar el valor por defecto
-    }
-    setLoading(false);
-  }, []);
-
-  const update = useCallback(
-    async (newData) => {
-      const val = typeof newData === "function" ? newData(data) : newData;
-      setData(val);
-      try {
-        localStorage.setItem(key, JSON.stringify(val));
-      } catch (e) {
-        console.error("Storage write error:", e);
-      }
-    },
-    [key, data]
-  );
-
-  return [data, update, loading];
-}
+// ─── (useStorage removido - todo usa Supabase ahora) ──────────
 
 // ─── Auth Hook ───────────────────────────────────────────────
 // Tabla Supabase: admins → columnas: username, password, role
@@ -577,6 +543,21 @@ const ProductCard = ({ product, onClick }) => {
         >
           #{product.number}
         </div>
+        {/* Product image */}
+        {product.image && (
+          <img
+            src={product.image}
+            alt={product.name}
+            style={{
+              position: "absolute",
+              inset: 0,
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+              zIndex: 1,
+            }}
+          />
+        )}
         {/* Out of stock overlay */}
         {!product.stock && (
           <div
@@ -587,7 +568,7 @@ const ProductCard = ({ product, onClick }) => {
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              zIndex: 2,
+              zIndex: 4,
             }}
           >
             <span
@@ -606,20 +587,6 @@ const ProductCard = ({ product, onClick }) => {
               Agotado
             </span>
           </div>
-        )}
-        {product.image && (
-          <img
-            src={product.image}
-            alt={product.name}
-            style={{
-              position: "absolute",
-              inset: 0,
-              width: "100%",
-              height: "100%",
-              objectFit: "cover",
-              zIndex: 1,
-            }}
-          />
         )}
       </div>
       {/* Card info */}
@@ -744,13 +711,15 @@ export default function AeternaApp() {
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [products, setProducts] = useState([]);
   const [prodLoading, setProdLoading] = useState(true);
-  const [reviews, setReviews, revLoading] = useStorage("aeterna-reviews", SEED_REVIEWS);
+  const [reviews, setReviews] = useState([]);
+  const [revLoading, setRevLoading] = useState(true);
   const [menuOpen, setMenuOpen] = useState(false);
   const auth = useAuth();
 
   // ── Cargar productos desde Supabase al montar ──
   useEffect(() => {
     loadProducts();
+    loadReviews();
   }, []);
 
   const loadProducts = async () => {
@@ -760,12 +729,26 @@ export default function AeternaApp() {
         .select('*');
 
       if (error) throw error;
-
       setProducts(data || []);
     } catch (err) {
       console.error("Error cargando productos:", err);
     } finally {
       setProdLoading(false);
+    }
+  };
+
+  const loadReviews = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('reviews')
+        .select('*');
+
+      if (error) throw error;
+      setReviews(data || []);
+    } catch (err) {
+      console.error("Error cargando reseñas:", err);
+    } finally {
+      setRevLoading(false);
     }
   };
 
@@ -911,7 +894,7 @@ export default function AeternaApp() {
     }
   };
 
-  // ── Review submit ──
+  // ── Review submit (Supabase) ──
   const submitReview = async () => {
     if (!reviewForm.author || !reviewForm.text) return;
     const newReview = {
@@ -922,30 +905,42 @@ export default function AeternaApp() {
       text: reviewForm.text,
       date: new Date().toISOString().split("T")[0],
     };
-    await setReviews([...reviews, newReview]);
-    // Update product review count and rating
-    const prodReviews = [...reviews.filter((r) => r.productId === selectedProduct.id), newReview];
-    const avgRating = prodReviews.reduce((a, b) => a + b.stars, 0) / prodReviews.length;
-    const newRating = Math.round(avgRating * 10) / 10;
-    const newCount = prodReviews.length;
 
-    // Actualizar rating en Supabase
     try {
+      // Insertar reseña en Supabase
+      const { error: revError } = await supabase
+        .from('reviews')
+        .insert([newReview]);
+
+      if (revError) throw revError;
+
+      // Actualizar estado local
+      const updatedReviews = [...reviews, newReview];
+      setReviews(updatedReviews);
+
+      // Calcular nuevo rating
+      const prodReviews = updatedReviews.filter((r) => r.productId === selectedProduct.id);
+      const avgRating = prodReviews.reduce((a, b) => a + b.stars, 0) / prodReviews.length;
+      const newRating = Math.round(avgRating * 10) / 10;
+      const newCount = prodReviews.length;
+
+      // Actualizar rating del producto en Supabase
       await supabase
         .from('products')
         .update({ rating: newRating, reviewCount: newCount })
         .eq('id', selectedProduct.id);
+
+      setProducts((prev) =>
+        prev.map((p) =>
+          p.id === selectedProduct.id
+            ? { ...p, rating: newRating, reviewCount: newCount }
+            : p
+        )
+      );
     } catch (err) {
-      console.error("Error actualizando rating:", err);
+      console.error("Error guardando reseña:", err);
     }
 
-    setProducts((prev) =>
-      prev.map((p) =>
-        p.id === selectedProduct.id
-          ? { ...p, rating: newRating, reviewCount: newCount }
-          : p
-      )
-    );
     setReviewForm({ author: "", stars: 5, text: "" });
     setShowReviewForm(false);
   };
@@ -976,6 +971,8 @@ export default function AeternaApp() {
       fontFamily: "'DM Sans', sans-serif",
       color: "#2C2420",
       position: "relative",
+      overflowX: "hidden",
+      width: "100%",
     },
     // Texture overlay
     texture: {
@@ -991,13 +988,14 @@ export default function AeternaApp() {
       display: "flex",
       alignItems: "center",
       justifyContent: "space-between",
-      padding: "16px 24px",
+      padding: "12px 12px",
       borderBottom: "1px solid #E8E0D0",
       background: "rgba(250,246,238,0.95)",
       backdropFilter: "blur(12px)",
       position: "sticky",
       top: 0,
       zIndex: 100,
+      gap: 4,
     },
     serif: {
       fontFamily: "'Cormorant Garamond', Georgia, serif",
@@ -1090,6 +1088,30 @@ export default function AeternaApp() {
         href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=DM+Sans:wght@300;400;500;600&display=swap"
         rel="stylesheet"
       />
+      {/* Viewport meta for mobile */}
+      <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes" />
+      {/* Global styles to fix mobile overflow */}
+      <style>{`
+        html, body { 
+          margin: 0; padding: 0; 
+          overflow-x: hidden; 
+          background: #FAF6EE;
+          -webkit-overflow-scrolling: touch;
+          width: 100%;
+        }
+        * { box-sizing: border-box; }
+        img { max-width: 100%; height: auto; }
+        @media (max-width: 600px) {
+          .mobile-nav { gap: 12px !important; }
+          .mobile-grid { grid-template-columns: 1fr !important; }
+          .mobile-grid-2 { grid-template-columns: 1fr !important; }
+          .mobile-hero-text { font-size: 28px !important; }
+          .mobile-testimonial { font-size: 18px !important; padding: 48px 20px !important; }
+          .mobile-detail-grid { grid-template-columns: 1fr !important; }
+          .mobile-admin-row { flex-direction: column !important; align-items: flex-start !important; }
+          .mobile-form-grid { grid-template-columns: 1fr !important; }
+        }
+      `}</style>
       {/* Paper texture overlay */}
       <div style={s.texture} />
 
@@ -1098,26 +1120,27 @@ export default function AeternaApp() {
         <header style={s.header}>
           <div
             onClick={() => nav("home")}
-            style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: 12 }}
+            style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: 8, minWidth: 0, flexShrink: 1 }}
           >
-            <AeternaLogo size={36} />
-            <div>
+            <AeternaLogo size={30} />
+            <div style={{ minWidth: 0 }}>
               <div
                 style={{
                   ...s.serif,
-                  fontSize: 20,
+                  fontSize: 16,
                   fontWeight: 600,
-                  letterSpacing: 6,
+                  letterSpacing: 4,
                   color: "#B8963E",
                   lineHeight: 1,
+                  whiteSpace: "nowrap",
                 }}
               >
                 {BRAND}
               </div>
               <div
                 style={{
-                  fontSize: 9,
-                  letterSpacing: 3,
+                  fontSize: 7,
+                  letterSpacing: 2,
                   color: "#8B7355",
                   textTransform: "uppercase",
                   marginTop: 2,
@@ -1130,10 +1153,12 @@ export default function AeternaApp() {
 
           {/* Desktop nav */}
           <nav
+            className="mobile-nav"
             style={{
               display: "flex",
               alignItems: "center",
-              gap: 32,
+              gap: 16,
+              flexShrink: 0,
             }}
           >
             {[
@@ -1145,15 +1170,16 @@ export default function AeternaApp() {
                 onClick={() => nav(p)}
                 style={{
                   ...s.serif,
-                  fontSize: 14,
+                  fontSize: 13,
                   fontWeight: page === p ? 600 : 400,
-                  letterSpacing: 1.5,
+                  letterSpacing: 1,
                   color: page === p ? "#B8963E" : "#5A4A3A",
                   cursor: "pointer",
                   textTransform: "uppercase",
                   borderBottom: page === p ? "1px solid #B8963E" : "1px solid transparent",
                   paddingBottom: 2,
                   transition: "all 0.3s",
+                  whiteSpace: "nowrap",
                 }}
               >
                 {label}
@@ -1164,12 +1190,13 @@ export default function AeternaApp() {
                 onClick={() => nav("admin")}
                 style={{
                   ...s.serif,
-                  fontSize: 14,
-                  letterSpacing: 1.5,
+                  fontSize: 12,
+                  letterSpacing: 1,
                   color: "#B8963E",
                   cursor: "pointer",
                   textTransform: "uppercase",
                   fontWeight: 600,
+                  whiteSpace: "nowrap",
                 }}
               >
                 Panel
@@ -1178,10 +1205,11 @@ export default function AeternaApp() {
               <span
                 onClick={() => nav("login")}
                 style={{
-                  fontSize: 12,
+                  fontSize: 11,
                   color: "#A09080",
                   cursor: "pointer",
                   letterSpacing: 1,
+                  whiteSpace: "nowrap",
                 }}
               >
                 Admin
@@ -1321,9 +1349,10 @@ export default function AeternaApp() {
                 </h2>
               </div>
               <div
+                className="mobile-grid"
                 style={{
                   display: "grid",
-                  gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+                  gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))",
                   gap: 24,
                 }}
               >
@@ -1347,10 +1376,12 @@ export default function AeternaApp() {
 
             {/* Testimonial */}
             <div
+              className="mobile-testimonial"
               style={{
                 background: "#2C2420",
                 padding: "80px 24px",
                 textAlign: "center",
+                width: "100%",
               }}
             >
               <div style={{ maxWidth: 600, margin: "0 auto" }}>
@@ -1396,9 +1427,10 @@ export default function AeternaApp() {
               </p>
             </div>
             <div
+              className="mobile-grid"
               style={{
                 display: "grid",
-                gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+                gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))",
                 gap: 24,
               }}
             >
@@ -1428,10 +1460,11 @@ export default function AeternaApp() {
               </div>
 
               <div
+                className="mobile-detail-grid"
                 style={{
                   display: "grid",
-                  gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
-                  gap: 48,
+                  gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
+                  gap: 32,
                 }}
               >
                 {/* Product image area */}
@@ -2204,6 +2237,7 @@ export default function AeternaApp() {
                     Agregar Usuario
                   </h4>
                   <div
+                    className="mobile-form-grid"
                     style={{
                       display: "grid",
                       gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
