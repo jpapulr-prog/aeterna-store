@@ -1176,7 +1176,7 @@ export default function AeternaApp() {
           >
             {[
               ["home", "Inicio"],
-              ["catalog", "Colección"],
+              ["catalog", "Ver Biblias"],
             ].map(([p, label]) => (
               <span
                 key={p}
@@ -1279,9 +1279,9 @@ export default function AeternaApp() {
                     margin: "0 auto 40px",
                   }}
                 >
-                  Cada pieza AETERNA es una obra artesanal creada para honrar la Palabra
-                  con la belleza que merece. Cuero genuino, detalles en oro y acabados que
-                  perduran por generaciones.
+                  En AETERNA, seleccionamos cuidadosamente ediciones exclusivas para honrar
+                  la Palabra con la belleza que merece. Piezas con acabados de lujo y materiales
+                  de alta calidad, diseñadas para acompañarte siempre.
                 </p>
                 <button
                   onClick={() => nav("catalog")}
@@ -1290,7 +1290,7 @@ export default function AeternaApp() {
                     ...s.btnGold,
                   }}
                 >
-                  Explorar Colección
+                  Explorar Biblias
                 </button>
               </div>
             </div>
@@ -1306,9 +1306,9 @@ export default function AeternaApp() {
                 }}
               >
                 {[
-                  ["Cuero Genuino", "Importado de Italia, curtido artesanalmente para una textura que mejora con los años."],
-                  ["Detalles en Oro", "Grabados y bordes en oro de 24k aplicados por maestros artesanos con técnicas centenarias."],
-                  ["Hecha para Siempre", "Cada Biblia viene con garantía de por vida. Una inversión que se hereda."],
+                  ["Materiales Selectos", "Seleccionamos piezas con texturas premium y acabados de alta resistencia, pensados para el uso diario y la durabilidad."],
+                  ["Acabados de Lujo", "Grabados finos y cantos decorados que aportan un brillo excepcional, resaltando la elegancia de cada edición."],
+                  ["Calidad Garantizada", "Cada ejemplar pasa por un control de calidad para asegurar su integridad. Una pieza de valor para compartir en familia."],
                 ].map(([title, desc], i) => (
                   <div key={i}>
                     <div
@@ -1382,7 +1382,7 @@ export default function AeternaApp() {
                   onClick={() => nav("catalog")}
                   style={{ ...s.btn, ...s.btnOutline }}
                 >
-                  Ver Toda la Colección
+                  Ver Todas las Biblias
                 </button>
               </div>
             </div>
@@ -1422,7 +1422,7 @@ export default function AeternaApp() {
                   marginBottom: 12,
                 }}
               >
-                Colección Completa
+                Catálogo Completo
               </div>
               <h2
                 style={{
@@ -1436,7 +1436,7 @@ export default function AeternaApp() {
                 Nuestras Piezas
               </h2>
               <p style={{ fontSize: 14, color: "#8B7355", marginTop: 12 }}>
-                {products.length} piezas artesanales • Envío a todo {CITY}
+                {products.length} ediciones exclusivas • Envío a todo {CITY}
               </p>
             </div>
             <div
@@ -1467,7 +1467,7 @@ export default function AeternaApp() {
               {/* Breadcrumb */}
               <div style={{ marginBottom: 32, fontSize: 13, color: "#8B7355" }}>
                 <span onClick={() => nav("catalog")} style={{ cursor: "pointer", textDecoration: "underline" }}>
-                  Colección
+                  Biblias
                 </span>
                 {" "}/ {p.name}
               </div>
@@ -2408,7 +2408,7 @@ export default function AeternaApp() {
           <div style={{ fontSize: 12, color: "#A09080", lineHeight: 1.7 }}>
             {CITY}, Colombia
             <br />
-            Piezas artesanales de edición limitada
+            Ediciones exclusivas de colección
           </div>
           <div style={{ fontSize: 11, color: "#C4B9A8", marginTop: 24 }}>
             © {new Date().getFullYear()} {BRAND} Concept Store. Todos los derechos reservados.
