@@ -165,7 +165,7 @@ const generateId = () =>
 
 const buildWhatsAppUrl = (productNumber, productName) => {
   const msg = encodeURIComponent(
-    `Hola AETERNA, me interesa la pieza ${productName}. ¿Podrían brindarme asesoría sobre la disponibilidad y los métodos de envío?`
+    `Hola AETERNA, me interesa la pieza #${productNumber} (${productName}). ¿Está disponible para entrega inmediata en ${CITY}?`
   );
   return `https://wa.me/${WHATSAPP_NUMBER}?text=${msg}`;
 };
@@ -503,6 +503,7 @@ const ProductCard = ({ product, onClick }) => {
     >
       {/* Product image placeholder */}
       <div
+        className="card-image"
         style={{
           position: "relative",
           paddingBottom: "120%",
@@ -526,6 +527,7 @@ const ProductCard = ({ product, onClick }) => {
         </div>
         {/* Product number badge */}
         <div
+          className="card-badge"
           style={{
             position: "absolute",
             top: 12,
@@ -590,8 +592,9 @@ const ProductCard = ({ product, onClick }) => {
         )}
       </div>
       {/* Card info */}
-      <div style={{ padding: "20px 16px" }}>
+      <div className="card-info" style={{ padding: "20px 16px" }}>
         <div
+          className="card-title"
           style={{
             fontFamily: "'Cormorant Garamond', Georgia, serif",
             fontSize: 18,
@@ -603,7 +606,7 @@ const ProductCard = ({ product, onClick }) => {
         >
           {product.name}
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+        <div className="card-stars" style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
           <Stars rating={product.rating} size={13} />
           <span
             style={{
@@ -616,6 +619,7 @@ const ProductCard = ({ product, onClick }) => {
           </span>
         </div>
         <div
+          className="card-price"
           style={{
             fontFamily: "'DM Sans', sans-serif",
             fontSize: 16,
@@ -1103,13 +1107,19 @@ export default function AeternaApp() {
         img { max-width: 100%; height: auto; }
         @media (max-width: 600px) {
           .mobile-nav { gap: 12px !important; }
-          .mobile-grid { grid-template-columns: 1fr !important; }
+          .mobile-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 10px !important; }
           .mobile-grid-2 { grid-template-columns: 1fr !important; }
           .mobile-hero-text { font-size: 28px !important; }
           .mobile-testimonial { font-size: 18px !important; padding: 48px 20px !important; }
           .mobile-detail-grid { grid-template-columns: 1fr !important; }
           .mobile-admin-row { flex-direction: column !important; align-items: flex-start !important; }
           .mobile-form-grid { grid-template-columns: 1fr !important; }
+          .card-info { padding: 10px 8px !important; }
+          .card-title { font-size: 14px !important; }
+          .card-price { font-size: 13px !important; }
+          .card-stars { gap: 2px !important; }
+          .card-badge { font-size: 9px !important; padding: 2px 6px !important; top: 6px !important; right: 6px !important; }
+          .card-image { padding-bottom: 130% !important; }
         }
       `}</style>
       {/* Paper texture overlay */}
