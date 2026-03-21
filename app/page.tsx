@@ -572,6 +572,7 @@ const ProductCard = ({ product, onClick }) => {
             fontWeight: 600,
             color: "#B8963E",
             letterSpacing: 1.5,
+            zIndex: 3,
           }}
         >
           #{product.number}
@@ -586,6 +587,7 @@ const ProductCard = ({ product, onClick }) => {
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
+              zIndex: 2,
             }}
           >
             <span
@@ -615,6 +617,7 @@ const ProductCard = ({ product, onClick }) => {
               width: "100%",
               height: "100%",
               objectFit: "cover",
+              zIndex: 1,
             }}
           />
         )}
