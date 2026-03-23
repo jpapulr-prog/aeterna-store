@@ -152,7 +152,7 @@ const SEED_REVIEWS = [
 ];
 
 // ─── Utility Functions ───────────────────────────────────────
-const formatCOP = (n) =>
+const formatCOP = (n: number) =>
   new Intl.NumberFormat("es-CO", {
     style: "currency",
     currency: "COP",
