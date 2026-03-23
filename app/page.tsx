@@ -163,7 +163,7 @@ const formatCOP = (n: number) =>
 const generateId = () =>
   Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 
-const buildWhatsAppUrl = (productNumber, productName) => {
+const buildWhatsAppUrl = (productNumber: string, productName: string) => {
   const msg = encodeURIComponent(
     `Hola AETERNA, me interesa la pieza #${productNumber} (${productName}). ¿Está disponible para entrega inmediata en ${CITY}?`
   );
