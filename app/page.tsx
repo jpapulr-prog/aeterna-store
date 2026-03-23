@@ -170,7 +170,7 @@ const buildWhatsAppUrl = (productNumber: string, productName: string) => {
   return `https://wa.me/${WHATSAPP_NUMBER}?text=${msg}`;
 };
 
-const simpleHash = (str) => {
+const simpleHash = (str: string) => {
   let h = 0;
   for (let i = 0; i < str.length; i++) {
     h = ((h << 5) - h + str.charCodeAt(i)) | 0;
