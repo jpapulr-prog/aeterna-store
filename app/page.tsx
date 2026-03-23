@@ -710,9 +710,23 @@ const WaitlistForm = ({ product }) => {
 
 // ─── Main App ────────────────────────────────────────────────
 export default function AeternaApp() {
+  // ── Routing: leer URL inicial para restaurar vista ──
+  const getInitialPage = () => {
+    if (typeof window === 'undefined') return { page: 'home', productId: null };
+    const path = window.location.pathname;
+    if (path.startsWith('/producto/')) return { page: 'product', productId: path.split('/producto/')[1] };
+    if (path === '/catalogo' || path === '/coleccion') return { page: 'catalog', productId: null };
+    if (path === '/admin') return { page: 'admin', productId: null };
+    if (path === '/login') return { page: 'login', productId: null };
+    return { page: 'home', productId: null };
+  };
+
+  const initial = getInitialPage();
+
   // ── State ──
-  const [page, setPage] = useState("home"); // home | catalog | product | login | admin
+  const [page, setPage] = useState(initial.page);
   const [selectedProduct, setSelectedProduct] = useState(null);
+  const [pendingProductId, setPendingProductId] = useState(initial.productId);
   const [products, setProducts] = useState([]);
   const [prodLoading, setProdLoading] = useState(true);
   const [reviews, setReviews] = useState([]);
@@ -725,6 +739,35 @@ export default function AeternaApp() {
     loadProducts();
     loadReviews();
   }, []);
+
+  // ── Cuando los productos cargan, resolver el producto pendiente de la URL ──
+  useEffect(() => {
+    if (pendingProductId && products.length > 0) {
+      const found = products.find((p) => p.id === pendingProductId);
+      if (found) {
+        setSelectedProduct(found);
+        setPage('product');
+      }
+      setPendingProductId(null);
+    }
+  }, [products, pendingProductId]);
+
+  // ── Escuchar botón Atrás del navegador ──
+  useEffect(() => {
+    const handlePopState = () => {
+      const { page: newPage, productId } = getInitialPage();
+      setPage(newPage);
+      if (newPage === 'product' && productId && products.length > 0) {
+        const found = products.find((p) => p.id === productId);
+        if (found) setSelectedProduct(found);
+      } else if (newPage !== 'product') {
+        setSelectedProduct(null);
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [products]);
 
   const loadProducts = async () => {
     try {
@@ -779,11 +822,20 @@ export default function AeternaApp() {
 
   const isLoading = prodLoading || revLoading || auth.loading;
 
-  // Navigate helper
+  // Navigate helper — pushes real URLs to browser history
   const nav = (p, prod = null) => {
     setPage(p);
     setSelectedProduct(prod);
     setMenuOpen(false);
+
+    // Mapear página a URL
+    let url = '/';
+    if (p === 'catalog') url = '/catalogo';
+    else if (p === 'product' && prod) url = `/producto/${prod.id}`;
+    else if (p === 'admin') url = '/admin';
+    else if (p === 'login') url = '/login';
+
+    window.history.pushState({}, '', url);
   };
 
   // ── Image Upload State ──
@@ -1464,12 +1516,34 @@ export default function AeternaApp() {
           const prodReviews = reviews.filter((r) => r.productId === p.id);
           return (
             <div className="product-detail-content" style={{ ...s.container, padding: "40px 24px 80px" }}>
-              {/* Breadcrumb */}
-              <div style={{ marginBottom: 32, fontSize: 13, color: "#8B7355" }}>
-                <span onClick={() => nav("catalog")} style={{ cursor: "pointer", textDecoration: "underline" }}>
-                  Biblias
-                </span>
-                {" "}/ {p.name}
+              {/* Botón Volver + Breadcrumb */}
+              <div style={{ marginBottom: 24 }}>
+                <button
+                  onClick={() => nav("catalog")}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 8,
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    padding: "10px 0",
+                    fontFamily: "'Cormorant Garamond', Georgia, serif",
+                    fontSize: 15,
+                    color: "#8B7355",
+                    transition: "color 0.3s",
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.color = '#B8963E'}
+                  onMouseLeave={(e) => e.currentTarget.style.color = '#8B7355'}
+                >
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M19 12H5M12 19l-7-7 7-7" />
+                  </svg>
+                  Volver al catálogo
+                </button>
+                <div style={{ fontSize: 12, color: "#A09080", marginTop: 2 }}>
+                  Biblias / {p.name}
+                </div>
               </div>
 
               <div
