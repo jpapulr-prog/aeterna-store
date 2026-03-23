@@ -178,18 +178,12 @@ const simpleHash = (str: string) => {
   return "h" + Math.abs(h).toString(36);
 };
 
-// ─── (useStorage removido - todo usa Supabase ahora) ──────────
-
 // ─── Auth Hook ───────────────────────────────────────────────
-// Tabla Supabase: admins → columnas: username, password, role
-// Todo se lee y escribe directamente en Supabase. Nada local.
-
 function useAuth() {
-  const [users, setUsers] = useState({});
-  const [session, setSession] = useState(null);
+  const [users, setUsers] = useState<any>({});
+  const [session, setSession] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
-  // ── CARGA INICIAL: traer todos los usuarios de Supabase ──
   useEffect(() => {
     loadUsers();
   }, []);
@@ -204,9 +198,9 @@ function useAuth() {
         throw error;
       }
 
-      const usersMap = {};
+      const usersMap: any = {};
       if (data && data.length > 0) {
-        data.forEach((row) => {
+        data.forEach((row: any) => {
           usersMap[row.username.toLowerCase()] = {
             username: row.username.toLowerCase(),
             password: row.password,
@@ -216,7 +210,6 @@ function useAuth() {
         });
       }
 
-      // Si la tabla está vacía, crear el SuperAdmin por defecto
       if (Object.keys(usersMap).length === 0) {
         const hashedPw = simpleHash(DEFAULT_SUPERADMIN.password);
         const { error: insertErr } = await supabase
@@ -244,8 +237,7 @@ function useAuth() {
     }
   };
 
-  // ── LOGIN: SELECT directo a Supabase por username ──
-  const login = async (username, password) => {
+  const login = async (username: string, password: string) => {
     const cleanUsername = username.toLowerCase().trim();
     try {
       const { data, error } = await supabase
@@ -258,12 +250,10 @@ function useAuth() {
         return { ok: false, msg: "Usuario no encontrado" };
       }
 
-      // Comparar hash de la contraseña
       if (data.password !== simpleHash(password)) {
         return { ok: false, msg: "Contraseña incorrecta" };
       }
 
-      // Sesión exitosa
       setSession({
         username: data.username,
         role: data.role || 'admin',
@@ -279,8 +269,7 @@ function useAuth() {
 
   const logout = () => setSession(null);
 
-  // ── AGREGAR USUARIO: INSERT en Supabase con columnas username, password, role ──
-  const addUser = async (username, password, role, name) => {
+  const addUser = async (username: string, password: string, role: string, name: string) => {
     const cleanUsername = username.toLowerCase().trim();
 
     if (!cleanUsername || !password) {
@@ -305,8 +294,7 @@ function useAuth() {
 
       if (error) throw error;
 
-      // Actualizar lista local para que la UI se actualice al instante
-      setUsers((prev) => ({
+      setUsers((prev: any) => ({
         ...prev,
         [cleanUsername]: {
           username: cleanUsername,
@@ -317,14 +305,13 @@ function useAuth() {
       }));
 
       return { ok: true };
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error al crear usuario:", err);
       return { ok: false, msg: "Error al guardar: " + err.message };
     }
   };
 
-  // ── ELIMINAR USUARIO: DELETE en Supabase ──
-  const removeUser = async (username) => {
+  const removeUser = async (username: string) => {
     const cleanUsername = username.toLowerCase().trim();
     try {
       const { error } = await supabase
@@ -334,7 +321,7 @@ function useAuth() {
 
       if (error) throw error;
 
-      setUsers((prev) => {
+      setUsers((prev: any) => {
         const { [cleanUsername]: _, ...rest } = prev;
         return rest;
       });
@@ -356,8 +343,7 @@ function useAuth() {
 
 // ─── SVG Components ──────────────────────────────────────────
 
-/** AETERNA Isotipo: "A" entrelazada con infinito */
-const AeternaLogo = ({ size = 48, color = "#B8963E" }) => (
+const AeternaLogo = ({ size = 48, color = "#B8963E" }: any) => (
   <svg
     width={size}
     height={size}
@@ -372,7 +358,6 @@ const AeternaLogo = ({ size = 48, color = "#B8963E" }) => (
         <stop offset="100%" stopColor="#C5A028" />
       </linearGradient>
     </defs>
-    {/* Infinity symbol */}
     <path
       d="M25 55 C25 45, 35 38, 50 50 C65 62, 75 55, 75 45 C75 35, 65 28, 50 40 C35 52, 25 45, 25 55Z"
       stroke="url(#goldGrad)"
@@ -380,7 +365,6 @@ const AeternaLogo = ({ size = 48, color = "#B8963E" }) => (
       fill="none"
       strokeLinecap="round"
     />
-    {/* Letter A */}
     <path
       d="M50 18 L33 72 M50 18 L67 72 M39 55 L61 55"
       stroke="url(#goldGrad)"
@@ -388,7 +372,6 @@ const AeternaLogo = ({ size = 48, color = "#B8963E" }) => (
       strokeLinecap="round"
       strokeLinejoin="round"
     />
-    {/* Decorative serifs */}
     <line
       x1="29"
       y1="72"
@@ -410,8 +393,7 @@ const AeternaLogo = ({ size = 48, color = "#B8963E" }) => (
   </svg>
 );
 
-/** Star rating component */
-const Stars = ({ rating, size = 16, interactive = false, onChange }) => {
+const Stars = ({ rating, size = 16, interactive = false, onChange }: any) => {
   const [hover, setHover] = useState(0);
   return (
     <span style={{ display: "inline-flex", gap: 2 }}>
@@ -438,16 +420,12 @@ const Stars = ({ rating, size = 16, interactive = false, onChange }) => {
   );
 };
 
-/** WhatsApp icon */
 const WhatsAppIcon = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
     <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
   </svg>
 );
 
-// ─── Page Components ─────────────────────────────────────────
-
-/** Elegant divider */
 const Divider = () => (
   <div
     style={{
@@ -471,12 +449,10 @@ const Divider = () => (
   </div>
 );
 
-/** Product card for the catalog grid */
-const ProductCard = ({ product, onClick }) => {
+const ProductCard = ({ product, onClick }: any) => {
   const [imgHover, setImgHover] = useState(false);
 
-  // Generate a luxurious placeholder pattern based on product category
-  const categoryColors = {
+  const categoryColors: any = {
     imperial: ["#B8963E", "#8B7355"],
     noir: ["#2C2C2C", "#4A4A4A"],
     ceremonial: ["#D4C5A9", "#B8963E"],
@@ -501,7 +477,6 @@ const ProductCard = ({ product, onClick }) => {
           : "0 2px 8px rgba(139,115,85,0.06)",
       }}
     >
-      {/* Product image placeholder */}
       <div
         className="card-image"
         style={{
@@ -511,7 +486,6 @@ const ProductCard = ({ product, onClick }) => {
           overflow: "hidden",
         }}
       >
-        {/* Debossed logo overlay */}
         <div
           style={{
             position: "absolute",
@@ -525,7 +499,6 @@ const ProductCard = ({ product, onClick }) => {
         >
           <AeternaLogo size={80} color={c1} />
         </div>
-        {/* Product number badge */}
         <div
           className="card-badge"
           style={{
@@ -545,7 +518,6 @@ const ProductCard = ({ product, onClick }) => {
         >
           #{product.number}
         </div>
-        {/* Product image */}
         {product.image && (
           <img
             src={product.image}
@@ -560,7 +532,6 @@ const ProductCard = ({ product, onClick }) => {
             }}
           />
         )}
-        {/* Out of stock overlay */}
         {!product.stock && (
           <div
             style={{
@@ -591,7 +562,6 @@ const ProductCard = ({ product, onClick }) => {
           </div>
         )}
       </div>
-      {/* Card info */}
       <div className="card-info" style={{ padding: "20px 16px" }}>
         <div
           className="card-title"
@@ -635,8 +605,7 @@ const ProductCard = ({ product, onClick }) => {
   );
 };
 
-/** Waitlist form for out-of-stock items */
-const WaitlistForm = ({ product }) => {
+const WaitlistForm = ({ product }: any) => {
   const [email, setEmail] = useState("");
   const [submitted, setSubmitted] = useState(false);
 
@@ -708,9 +677,7 @@ const WaitlistForm = ({ product }) => {
   );
 };
 
-// ─── Main App ────────────────────────────────────────────────
 export default function AeternaApp() {
-  // ── Routing: leer URL inicial para restaurar vista ──
   const getInitialPage = () => {
     if (typeof window === 'undefined') return { page: 'home', productId: null };
     const path = window.location.pathname;
@@ -723,24 +690,21 @@ export default function AeternaApp() {
 
   const initial = getInitialPage();
 
-  // ── State ──
   const [page, setPage] = useState(initial.page);
-  const [selectedProduct, setSelectedProduct] = useState(null);
+  const [selectedProduct, setSelectedProduct] = useState<any>(null);
   const [pendingProductId, setPendingProductId] = useState(initial.productId);
-  const [products, setProducts] = useState([]);
+  const [products, setProducts] = useState<any[]>([]);
   const [prodLoading, setProdLoading] = useState(true);
-  const [reviews, setReviews] = useState([]);
+  const [reviews, setReviews] = useState<any[]>([]);
   const [revLoading, setRevLoading] = useState(true);
   const [menuOpen, setMenuOpen] = useState(false);
   const auth = useAuth();
 
-  // ── Cargar productos desde Supabase al montar ──
   useEffect(() => {
     loadProducts();
     loadReviews();
   }, []);
 
-  // ── Cuando los productos cargan, resolver el producto pendiente de la URL ──
   useEffect(() => {
     if (pendingProductId && products.length > 0) {
       const found = products.find((p) => p.id === pendingProductId);
@@ -752,7 +716,6 @@ export default function AeternaApp() {
     }
   }, [products, pendingProductId]);
 
-  // ── Escuchar botón Atrás del navegador ──
   useEffect(() => {
     const handlePopState = () => {
       const { page: newPage, productId } = getInitialPage();
@@ -799,11 +762,10 @@ export default function AeternaApp() {
     }
   };
 
-  // Admin form states
   const [loginForm, setLoginForm] = useState({ username: "", password: "" });
   const [loginError, setLoginError] = useState("");
-  const [adminTab, setAdminTab] = useState("products"); // products | users | settings
-  const [editingProduct, setEditingProduct] = useState(null);
+  const [adminTab, setAdminTab] = useState("products"); 
+  const [editingProduct, setEditingProduct] = useState<any>(null);
   const [newUserForm, setNewUserForm] = useState({
     username: "",
     password: "",
@@ -811,24 +773,20 @@ export default function AeternaApp() {
     role: "admin",
   });
 
-  // Review form
   const [reviewForm, setReviewForm] = useState({ author: "", stars: 5, text: "" });
   const [showReviewForm, setShowReviewForm] = useState(false);
 
-  // Scroll to top on page change
   useEffect(() => {
     window.scrollTo(0, 0);
   }, [page, selectedProduct]);
 
   const isLoading = prodLoading || revLoading || auth.loading;
 
-  // Navigate helper — pushes real URLs to browser history
-  const nav = (p, prod = null) => {
+  const nav = (p: string, prod: any = null) => {
     setPage(p);
     setSelectedProduct(prod);
     setMenuOpen(false);
 
-    // Mapear página a URL
     let url = '/';
     if (p === 'catalog') url = '/catalogo';
     else if (p === 'product' && prod) url = `/producto/${prod.id}`;
@@ -838,16 +796,13 @@ export default function AeternaApp() {
     window.history.pushState({}, '', url);
   };
 
-  // ── Image Upload State ──
   const [uploading, setUploading] = useState(false);
 
-  // ── Subir imagen a Supabase Storage ──
-  const uploadImage = async (file) => {
+  const uploadImage = async (file: any) => {
     if (!file) return null;
 
     setUploading(true);
     try {
-      // Crear nombre único para el archivo
       const fileExt = file.name.split('.').pop();
       const fileName = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${fileExt}`;
 
@@ -857,7 +812,6 @@ export default function AeternaApp() {
 
       if (error) throw error;
 
-      // Obtener la URL pública
       const { data: urlData } = supabase.storage
         .from('product-images')
         .getPublicUrl(fileName);
@@ -871,14 +825,11 @@ export default function AeternaApp() {
     }
   };
 
-  // ── Product CRUD (Supabase) ──
-  const saveProduct = async (product) => {
+  const saveProduct = async (product: any) => {
     try {
-      // Verificar si el producto ya existe
       const exists = products.find((p) => p.id === product.id);
 
       if (exists) {
-        // UPDATE en Supabase
         const { error } = await supabase
           .from('products')
           .update({
@@ -898,7 +849,6 @@ export default function AeternaApp() {
 
         setProducts((prev) => prev.map((p) => (p.id === product.id ? product : p)));
       } else {
-        // INSERT en Supabase
         const { data, error } = await supabase
           .from('products')
           .insert([product])
@@ -914,7 +864,7 @@ export default function AeternaApp() {
     setEditingProduct(null);
   };
 
-  const deleteProduct = async (id) => {
+  const deleteProduct = async (id: string) => {
     try {
       const { error } = await supabase
         .from('products')
@@ -929,7 +879,7 @@ export default function AeternaApp() {
     }
   };
 
-  const toggleStock = async (id) => {
+  const toggleStock = async (id: string) => {
     const product = products.find((p) => p.id === id);
     if (!product) return;
 
@@ -950,7 +900,6 @@ export default function AeternaApp() {
     }
   };
 
-  // ── Review submit (Supabase) ──
   const submitReview = async () => {
     if (!reviewForm.author || !reviewForm.text) return;
     const newReview = {
@@ -963,24 +912,20 @@ export default function AeternaApp() {
     };
 
     try {
-      // Insertar reseña en Supabase
       const { error: revError } = await supabase
         .from('reviews')
         .insert([newReview]);
 
       if (revError) throw revError;
 
-      // Actualizar estado local
       const updatedReviews = [...reviews, newReview];
       setReviews(updatedReviews);
 
-      // Calcular nuevo rating
       const prodReviews = updatedReviews.filter((r) => r.productId === selectedProduct.id);
       const avgRating = prodReviews.reduce((a, b) => a + b.stars, 0) / prodReviews.length;
       const newRating = Math.round(avgRating * 10) / 10;
       const newCount = prodReviews.length;
 
-      // Actualizar rating del producto en Supabase
       await supabase
         .from('products')
         .update({ rating: newRating, reviewCount: newCount })
@@ -1001,8 +946,6 @@ export default function AeternaApp() {
     setShowReviewForm(false);
   };
 
-  // ── Login handler ──
-  // Valida credenciales directamente contra la tabla 'admins' en Supabase
   const handleLogin = async () => {
     if (!loginForm.username || !loginForm.password) {
       setLoginError("Ingresa usuario y contraseña");
@@ -1015,31 +958,29 @@ export default function AeternaApp() {
       setLoginForm({ username: "", password: "" });
       nav("admin");
     } else {
-      setLoginError(result.msg);
+      setLoginError(result.msg || "");
     }
   };
 
-  // ── Styles object ──
-  const s = {
+  const s: any = {
     page: {
       minHeight: "100vh",
       background: "#FAF6EE",
       fontFamily: "'DM Sans', sans-serif",
       color: "#2C2420",
       position: "relative",
-      overflowX: "hidden",
+      overflowX: "hidden" as "hidden",
       width: "100%",
     },
-    // Texture overlay
     texture: {
-      position: "fixed",
+      position: "fixed" as "fixed",
       inset: 0,
-      pointerEvents: "none",
+      pointerEvents: "none" as "none",
       zIndex: 0,
       opacity: 0.03,
       backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E")`,
     },
-    content: { position: "relative", zIndex: 1 },
+    content: { position: "relative" as "relative", zIndex: 1 },
     header: {
       display: "flex",
       alignItems: "center",
@@ -1048,7 +989,7 @@ export default function AeternaApp() {
       borderBottom: "1px solid #E8E0D0",
       background: "rgba(250,246,238,0.95)",
       backdropFilter: "blur(12px)",
-      position: "sticky",
+      position: "sticky" as "sticky",
       top: 0,
       zIndex: 100,
       gap: 4,
@@ -1066,7 +1007,7 @@ export default function AeternaApp() {
       fontSize: 14,
       fontWeight: 600,
       letterSpacing: 2,
-      textTransform: "uppercase",
+      textTransform: "uppercase" as "uppercase",
       cursor: "pointer",
       transition: "all 0.3s",
     },
@@ -1092,20 +1033,19 @@ export default function AeternaApp() {
       fontSize: 14,
       color: "#2C2420",
       outline: "none",
-      boxSizing: "border-box",
+      boxSizing: "border-box" as "border-box",
     },
     label: {
       fontSize: 12,
       fontWeight: 500,
       color: "#8B7355",
-      textTransform: "uppercase",
+      textTransform: "uppercase" as "uppercase",
       letterSpacing: 1.5,
       marginBottom: 6,
       display: "block",
     },
   };
 
-  // ── Loading screen ──
   if (isLoading) {
     return (
       <div
@@ -1134,19 +1074,13 @@ export default function AeternaApp() {
     );
   }
 
-  // ═══════════════════════════════════════════════════════════
-  //  RENDER
-  // ═══════════════════════════════════════════════════════════
   return (
     <div style={s.page}>
-      {/* Google Fonts */}
       <link
         href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=DM+Sans:wght@300;400;500;600&display=swap"
         rel="stylesheet"
       />
-      {/* Viewport meta for mobile */}
       <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes" />
-      {/* Global styles to fix mobile overflow */}
       <style>{`
         html, body { 
           margin: 0; padding: 0; 
@@ -1177,11 +1111,9 @@ export default function AeternaApp() {
           .product-detail-content { padding-bottom: 80px !important; }
         }
       `}</style>
-      {/* Paper texture overlay */}
       <div style={s.texture} />
 
       <div style={s.content}>
-        {/* ═══ HEADER ═══ */}
         <header style={s.header}>
           <div
             onClick={() => nav("home")}
@@ -1216,7 +1148,6 @@ export default function AeternaApp() {
             </div>
           </div>
 
-          {/* Desktop nav */}
           <nav
             className="mobile-nav"
             style={{
@@ -1283,10 +1214,8 @@ export default function AeternaApp() {
           </nav>
         </header>
 
-        {/* ═══ HOME PAGE ═══ */}
         {page === "home" && (
           <div>
-            {/* Hero banner */}
             <div
               style={{
                 padding: "100px 24px 80px",
@@ -1347,7 +1276,6 @@ export default function AeternaApp() {
               </div>
             </div>
 
-            {/* Value propositions */}
             <div style={{ ...s.container, padding: "80px 24px" }}>
               <div
                 style={{
@@ -1382,7 +1310,6 @@ export default function AeternaApp() {
               </div>
             </div>
 
-            {/* Featured products (first 3) */}
             <div
               style={{
                 ...s.container,
@@ -1439,7 +1366,6 @@ export default function AeternaApp() {
               </div>
             </div>
 
-            {/* Testimonial */}
             <div
               className="mobile-testimonial"
               style={{
@@ -1461,7 +1387,6 @@ export default function AeternaApp() {
           </div>
         )}
 
-        {/* ═══ CATALOG PAGE ═══ */}
         {page === "catalog" && (
           <div style={{ ...s.container, padding: "60px 24px 80px" }}>
             <div style={{ textAlign: "center", marginBottom: 48 }}>
@@ -1510,13 +1435,11 @@ export default function AeternaApp() {
           </div>
         )}
 
-        {/* ═══ PRODUCT DETAIL PAGE ═══ */}
         {page === "product" && selectedProduct && (() => {
           const p = products.find((x) => x.id === selectedProduct.id) || selectedProduct;
           const prodReviews = reviews.filter((r) => r.productId === p.id);
           return (
             <div className="product-detail-content" style={{ ...s.container, padding: "40px 24px 80px" }}>
-              {/* Botón Volver + Breadcrumb */}
               <div style={{ marginBottom: 24 }}>
                 <button
                   onClick={() => nav("catalog")}
@@ -1554,7 +1477,6 @@ export default function AeternaApp() {
                   gap: 32,
                 }}
               >
-                {/* Product image area */}
                 <div>
                   <div
                     style={{
@@ -1598,7 +1520,6 @@ export default function AeternaApp() {
                   </div>
                 </div>
 
-                {/* Product info */}
                 <div>
                   <div
                     style={{
@@ -1653,7 +1574,6 @@ export default function AeternaApp() {
                     {p.description}
                   </p>
 
-                  {/* CTA: WhatsApp or Waitlist */}
                   {p.stock ? (
                     <div className="whatsapp-btn-wrapper">
                       <a
@@ -1701,7 +1621,6 @@ export default function AeternaApp() {
                 </div>
               </div>
 
-              {/* Reviews section */}
               <div style={{ marginTop: 80 }}>
                 <Divider />
                 <h3
@@ -1747,7 +1666,6 @@ export default function AeternaApp() {
                   ))}
                 </div>
 
-                {/* Add review */}
                 <div style={{ textAlign: "center", marginTop: 32 }}>
                   {!showReviewForm ? (
                     <button
@@ -1782,7 +1700,7 @@ export default function AeternaApp() {
                           rating={reviewForm.stars}
                           size={24}
                           interactive
-                          onChange={(v) => setReviewForm({ ...reviewForm, stars: v })}
+                          onChange={(v: any) => setReviewForm({ ...reviewForm, stars: v })}
                         />
                       </div>
                       <div style={{ marginBottom: 16 }}>
@@ -1810,7 +1728,6 @@ export default function AeternaApp() {
           );
         })()}
 
-        {/* ═══ LOGIN PAGE ═══ */}
         {page === "login" && !auth.session && (
           <div
             style={{
@@ -1881,10 +1798,8 @@ export default function AeternaApp() {
           </div>
         )}
 
-        {/* ═══ ADMIN PANEL ═══ */}
         {page === "admin" && auth.session && (
           <div style={{ ...s.container, padding: "40px 24px 80px" }}>
-            {/* Admin header */}
             <div
               style={{
                 display: "flex",
@@ -1925,7 +1840,6 @@ export default function AeternaApp() {
               </button>
             </div>
 
-            {/* Admin tabs */}
             <div
               style={{
                 display: "flex",
@@ -1963,10 +1877,8 @@ export default function AeternaApp() {
               ))}
             </div>
 
-            {/* ── Products tab ── */}
             {adminTab === "products" && (
               <div>
-                {/* Add product button */}
                 <div style={{ marginBottom: 24 }}>
                   <button
                     onClick={() =>
@@ -1990,7 +1902,6 @@ export default function AeternaApp() {
                   </button>
                 </div>
 
-                {/* Edit modal */}
                 {editingProduct && (
                   <div
                     style={{
@@ -2095,7 +2006,6 @@ export default function AeternaApp() {
                         </div>
                         <div>
                           <label style={s.label}>Imagen del producto</label>
-                          {/* Preview de imagen actual */}
                           {editingProduct.image && (
                             <div style={{ marginBottom: 12, position: "relative" }}>
                               <img
@@ -2126,7 +2036,6 @@ export default function AeternaApp() {
                               </button>
                             </div>
                           )}
-                          {/* Botón para subir imagen */}
                           <div
                             style={{
                               border: "2px dashed #D4C5A9",
@@ -2199,7 +2108,6 @@ export default function AeternaApp() {
                   </div>
                 )}
 
-                {/* Products list */}
                 <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                   {products.map((p) => (
                     <div
@@ -2233,7 +2141,6 @@ export default function AeternaApp() {
                           {formatCOP(p.price)}
                         </div>
                       </div>
-                      {/* Stock toggle */}
                       <div
                         onClick={() => toggleStock(p.id)}
                         style={{
@@ -2275,7 +2182,6 @@ export default function AeternaApp() {
                         </div>
                         {p.stock ? "En stock" : "Agotado"}
                       </div>
-                      {/* Actions */}
                       <button
                         onClick={() => setEditingProduct(p)}
                         style={{
@@ -2308,10 +2214,8 @@ export default function AeternaApp() {
               </div>
             )}
 
-            {/* ── Users tab (SuperAdmin only) ── */}
             {adminTab === "users" && auth.session.role === "superadmin" && (
               <div>
-                {/* Add user form */}
                 <div
                   style={{
                     padding: 24,
@@ -2402,9 +2306,8 @@ export default function AeternaApp() {
                   </button>
                 </div>
 
-                {/* Users list */}
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                  {Object.values(auth.users).map((u) => (
+                  {Object.values(auth.users).map((u: any) => (
                     <div
                       key={u.username}
                       style={{
@@ -2452,13 +2355,11 @@ export default function AeternaApp() {
           </div>
         )}
 
-        {/* Redirect if admin page but no session */}
         {page === "admin" && !auth.session && (() => {
           nav("login");
           return null;
         })()}
 
-        {/* ═══ FOOTER ═══ */}
         <footer
           style={{
             borderTop: "1px solid #E8E0D0",
