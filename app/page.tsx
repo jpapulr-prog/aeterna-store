@@ -19,6 +19,12 @@ const BRAND = "AETERNA";
 const TAGLINE = "Lo que es para siempre, merece ser hermoso";
 const CITY = "Medellín";
 
+// ─── MAINTENANCE MODE ───────────────────────────────────────
+// Cambia a 'true' para mostrar la pantalla de mantenimiento a TODOS los
+// visitantes (no carga nada de Supabase). Cambia a 'false' para volver
+// a la operación normal.
+const MAINTENANCE_MODE = true;
+
 // ─── Cloudinary Config ─────────────────────────────────────────
 // Cuenta gratuita: 25GB almacenamiento + 25GB ancho de banda/mes
 const CLOUDINARY_CLOUD_NAME = "dolezxzs9";
@@ -683,7 +689,103 @@ const WaitlistForm = ({ product }: any) => {
   );
 };
 
+// ─── Maintenance Screen ───────────────────────────────────────
+const MaintenanceScreen = () => (
+  <div
+    style={{
+      minHeight: "100vh",
+      background: "#FAF6EE",
+      display: "flex",
+      flexDirection: "column",
+      alignItems: "center",
+      justifyContent: "center",
+      padding: 24,
+      textAlign: "center",
+      fontFamily: "'DM Sans', sans-serif",
+    }}
+  >
+    <link
+      href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=DM+Sans:wght@300;400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <AeternaLogo size={64} />
+    <div
+      style={{
+        fontFamily: "'Cormorant Garamond', Georgia, serif",
+        fontSize: 14,
+        fontWeight: 600,
+        letterSpacing: 6,
+        color: "#B8963E",
+        marginTop: 24,
+        textTransform: "uppercase",
+      }}
+    >
+      {BRAND}
+    </div>
+    <Divider />
+    <h1
+      style={{
+        fontFamily: "'Cormorant Garamond', Georgia, serif",
+        fontSize: "clamp(24px, 5vw, 38px)",
+        fontWeight: 400,
+        fontStyle: "italic",
+        color: "#2C2420",
+        margin: "0 0 16px",
+        maxWidth: 500,
+        lineHeight: 1.4,
+      }}
+    >
+      Estamos mejorando tu experiencia
+    </h1>
+    <p
+      style={{
+        fontSize: 15,
+        lineHeight: 1.8,
+        color: "#5A4A3A",
+        maxWidth: 420,
+        margin: "0 0 32px",
+      }}
+    >
+      Nuestro catálogo está temporalmente fuera de línea mientras realizamos
+      mejoras. Vuelve a visitarnos muy pronto.
+    </p>
+    <a
+      href={`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(
+        "Hola AETERNA, vi que la web está en mantenimiento. ¿Podrían ayudarme?"
+      )}`}
+      target="_blank"
+      rel="noopener noreferrer"
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 10,
+        padding: "14px 32px",
+        background: "#25D366",
+        color: "#fff",
+        textDecoration: "none",
+        fontFamily: "'Cormorant Garamond', Georgia, serif",
+        fontSize: 14,
+        fontWeight: 600,
+        letterSpacing: 2,
+        textTransform: "uppercase",
+      }}
+    >
+      <WhatsAppIcon />
+      Escríbenos por WhatsApp
+    </a>
+    <div style={{ fontSize: 11, color: "#C4B9A8", marginTop: 48 }}>
+      {CITY}, Colombia
+    </div>
+  </div>
+);
+
 export default function AeternaApp() {
+  // ── Modo mantenimiento: corta toda la lógica antes de tocar Supabase ──
+  if (MAINTENANCE_MODE) {
+    return <MaintenanceScreen />;
+  }
+
   const getInitialPage = () => {
     if (typeof window === 'undefined') return { page: 'home', productId: null };
     const path = window.location.pathname;
