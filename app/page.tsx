@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 import { useState, useEffect } from "react";
 import { supabase } from '../supabase';
 /* ═══════════════════════════════════════════════════════════════
@@ -6,7 +6,8 @@ import { supabase } from '../supabase';
    ═══════════════════════════════════════════════════════════════
    Architecture:
    - Single React SPA with internal routing (state-based)
-   - Persistent storage via Supabase (admins, products, reviews, images)
+   - Persistent storage via Supabase (admins, products, reviews)
+   - Image storage via Cloudinary (free 25GB tier)
    - Role-based auth: SuperAdmin + Admin
    - WhatsApp lead qualification with product context
    - Premium luxury UI: warm cream, gold accents, serif typography
@@ -17,6 +18,11 @@ const WHATSAPP_NUMBER = "573223778543"; // Replace with real number
 const BRAND = "AETERNA";
 const TAGLINE = "Lo que es para siempre, merece ser hermoso";
 const CITY = "Medellín";
+
+// ─── Cloudinary Config ─────────────────────────────────────────
+// Cuenta gratuita: 25GB almacenamiento + 25GB ancho de banda/mes
+const CLOUDINARY_CLOUD_NAME = "dolezxzs9";
+const CLOUDINARY_UPLOAD_PRESET = "aeterna_unsigned";
 
 // Default SuperAdmin credentials (first run only)
 const DEFAULT_SUPERADMIN = {
@@ -798,25 +804,74 @@ export default function AeternaApp() {
 
   const [uploading, setUploading] = useState(false);
 
+  // ── Subir imagen a Cloudinary (plan gratuito: 25GB) ──
+  // Comprime la imagen en el navegador antes de subirla para ahorrar espacio
+  const compressImage = (file: File, maxWidth = 1200, quality = 0.8): Promise<Blob> => {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      const reader = new FileReader();
+
+      reader.onload = (e) => {
+        img.src = e.target?.result as string;
+      };
+
+      img.onload = () => {
+        let { width, height } = img;
+
+        if (width > maxWidth) {
+          height = Math.round((height * maxWidth) / width);
+          width = maxWidth;
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(img, 0, 0, width, height);
+
+        canvas.toBlob(
+          (blob) => {
+            if (blob) resolve(blob);
+            else reject(new Error('Error al comprimir imagen'));
+          },
+          'image/jpeg',
+          quality
+        );
+      };
+
+      img.onerror = reject;
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  };
+
   const uploadImage = async (file: any) => {
     if (!file) return null;
 
     setUploading(true);
     try {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${fileExt}`;
+      // Comprimir antes de subir (reduce tamaño significativamente)
+      const compressedBlob = await compressImage(file, 1200, 0.8);
 
-      const { data, error } = await supabase.storage
-        .from('product-images')
-        .upload(fileName, file);
+      const formData = new FormData();
+      formData.append('file', compressedBlob, file.name);
+      formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
 
-      if (error) throw error;
+      const response = await fetch(
+        `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`,
+        {
+          method: 'POST',
+          body: formData,
+        }
+      );
 
-      const { data: urlData } = supabase.storage
-        .from('product-images')
-        .getPublicUrl(fileName);
+      if (!response.ok) {
+        const errData = await response.json().catch(() => null);
+        throw new Error(errData?.error?.message || 'Error subiendo a Cloudinary');
+      }
 
-      return urlData.publicUrl;
+      const data = await response.json();
+      return data.secure_url as string;
     } catch (err) {
       console.error("Error subiendo imagen:", err);
       return null;
