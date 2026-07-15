@@ -23,7 +23,7 @@ const CITY = "Medellín";
 // Cambia a 'true' para mostrar la pantalla de mantenimiento a TODOS los
 // visitantes (no carga nada de Supabase). Cambia a 'false' para volver
 // a la operación normal.
-const MAINTENANCE_MODE = true;
+const MAINTENANCE_MODE = false;
 
 // ─── Cloudinary Config ─────────────────────────────────────────
 // Cuenta gratuita: 25GB almacenamiento + 25GB ancho de banda/mes
